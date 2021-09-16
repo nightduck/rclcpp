@@ -44,7 +44,7 @@
 
 using namespace std::chrono_literals;
 
-static const int g_max_loops = 200;
+static const int g_max_loops = 1000;
 static const std::chrono::milliseconds g_sleep_per_loop(10);
 
 
