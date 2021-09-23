@@ -62,7 +62,6 @@ class Node;
  * model.
  * See SingleThreadedExecutor and MultiThreadedExecutor for examples of execution paradigms.
  */
-
 class Executor
 {
 public:
