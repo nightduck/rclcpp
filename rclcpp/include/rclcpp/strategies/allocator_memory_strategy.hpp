@@ -320,11 +320,11 @@ public:
           continue;
         }
         // Otherwise it is safe to set and return the any_exec
-        *ot.subscription = subscription;
-        *ot.callback_group = group;
-        *ot.node_base = get_node_by_group(group, weak_groups_to_nodes);
-        *ot.erase(it);
-        ot++
+        (*ot).subscription = subscription;
+        (*ot).callback_group = group;
+        (*ot).node_base = get_node_by_group(group, weak_groups_to_nodes);
+        subscription_handles_.erase(it);
+        ot++;
       } else {
         // Else, the subscription is no longer valid, remove it and continue
         it = subscription_handles_.erase(it);
@@ -393,11 +393,11 @@ public:
           continue;
         }
         // Otherwise it is safe to set and return the any_exec
-        *ot.service = service;
-        *ot.callback_group = group;
-        *ot.node_base = get_node_by_group(group, weak_groups_to_nodes);
-        *ot.erase(it);
-        ot++
+        (*ot).service = service;
+        (*ot).callback_group = group;
+        (*ot).node_base = get_node_by_group(group, weak_groups_to_nodes);
+        service_handles_.erase(it);
+        ot++;
       } else {
         // Else, the service is no longer valid, remove it and continue
         it = service_handles_.erase(it);
@@ -466,11 +466,11 @@ public:
           continue;
         }
         // Otherwise it is safe to set and return the any_exec
-        *ot.client = client;
-        *ot.callback_group = group;
-        *ot.node_base = get_node_by_group(group, weak_groups_to_nodes);
-        *ot.erase(it);
-        ot++
+        (*ot).client = client;
+        (*ot).callback_group = group;
+        (*ot).node_base = get_node_by_group(group, weak_groups_to_nodes);
+        client_handles_.erase(it);
+        ot++;
       } else {
         // Else, the service is no longer valid, remove it and continue
         it = client_handles_.erase(it);
@@ -521,7 +521,7 @@ public:
 
   int
   get_ready_timers(
-    rclcpp::AnyExecutable & any_exec,
+    std::vector<rclcpp::AnyExecutable> & any_execs,
     const WeakCallbackGroupsToNodesMap & weak_groups_to_nodes)
   {
     auto it = timer_handles_.begin();
@@ -549,11 +549,11 @@ public:
           continue;
         }
         // Otherwise it is safe to set and return the any_exec
-        *ot.timer = timer;
-        *ot.callback_group = group;
-        *ot.node_base = get_node_by_group(group, weak_groups_to_nodes);
-        *ot.erase(it);
-        ot++
+        (*ot).timer = timer;
+        (*ot).callback_group = group;
+        (*ot).node_base = get_node_by_group(group, weak_groups_to_nodes);
+        timer_handles_.erase(it);
+        ot++;
       } else {
         // Else, the timer is no longer valid, remove it and continue
         it = timer_handles_.erase(it);
@@ -622,11 +622,11 @@ public:
           continue;
         }
         // Otherwise it is safe to set and return the any_exec
-        *ot.waitable = waitable;
-        *ot.callback_group = group;
-        *ot.node_base = get_node_by_group(group, weak_groups_to_nodes);
-        *ot.erase(it);
-        ot++
+        (*ot).waitable = waitable;
+        (*ot).callback_group = group;
+        (*ot).node_base = get_node_by_group(group, weak_groups_to_nodes);
+        waitable_handles_.erase(it);
+        ot++;
       } else {
         // Else, the waitable is no longer valid, remove it and continue
         it = waitable_handles_.erase(it);
