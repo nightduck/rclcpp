@@ -62,14 +62,7 @@ class Node;
  * model.
  * See SingleThreadedExecutor and MultiThreadedExecutor for examples of execution paradigms.
  */
-template<
-  typename CbgSchedT = int,
-  typename NodeSchedT = CbgSchedT,
-  typename TmrSchedT = CbgSchedT,
-  typename SubSchedT = CbgSchedT,
-  typename ServSchedT = CbgSchedT,
-  typename ClientSchedT = CbgSchedT
->
+
 class Executor
 {
 public:
