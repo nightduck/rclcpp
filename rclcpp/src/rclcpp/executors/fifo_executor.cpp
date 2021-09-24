@@ -40,10 +40,10 @@ FifoExecutor::FifoExecutor(
   }
 }
 
-FifiExecutor::~FifiExecutor() {}
+FifoExecutor::~FifoExecutor() {}
 
 void
-FifiExecutor::spin()
+FifoExecutor::spin()
 {
   if (spinning.exchange(true)) {
     throw std::runtime_error("spin() called while already spinning");
@@ -54,7 +54,7 @@ FifiExecutor::spin()
   {
     std::lock_guard wait_lock{wait_mutex_};
     for (; thread_id < number_of_threads_ - 1; ++thread_id) {
-      auto func = std::bind(&FifiExecutor::run, this, thread_id);
+      auto func = std::bind(&FifoExecutor::run, this, thread_id);
       threads.emplace_back(func);
     }
   }
@@ -66,13 +66,13 @@ FifiExecutor::spin()
 }
 
 size_t
-FifiExecutor::get_number_of_threads()
+FifoExecutor::get_number_of_threads()
 {
   return number_of_threads_;
 }
 
 void
-FifiExecutor::run(size_t)
+FifoExecutor::run(size_t)
 {
   while (rclcpp::ok(this->context_) && spinning.load()) {
     rclcpp::AnyExecutable any_exec;
