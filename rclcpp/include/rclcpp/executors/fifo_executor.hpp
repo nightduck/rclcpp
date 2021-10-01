@@ -18,6 +18,7 @@
 #include <chrono>
 #include <memory>
 #include <mutex>
+#include <queue>
 #include <set>
 #include <thread>
 #include <unordered_map>
@@ -26,6 +27,7 @@
 #include "rclcpp/macros.hpp"
 #include "rclcpp/memory_strategies.hpp"
 #include "rclcpp/visibility_control.hpp"
+#include "rclcpp/strategies/prefetch_memory_strategy.hpp"
 
 namespace rclcpp
 {
@@ -73,9 +75,20 @@ public:
   size_t
   get_number_of_threads();
 
+  /**
+  * \throws std::runtime_error if the wait set can be cleared
+  */
+  RCLCPP_PUBLIC
+  void
+  wait_for_work(std::chrono::nanoseconds timeout = std::chrono::nanoseconds(-1));
+
   RCLCPP_PUBLIC
   bool
-  get_next_ready_executable_from_map(
+  get_next_ready_executable(AnyExecutable & any_executable);
+
+  RCLCPP_PUBLIC
+  bool
+  get_ready_executables_from_map(
     AnyExecutable & any_executable,
     const WeakCallbackGroupsToNodesMap & weak_groups_to_nodes);
 
@@ -86,6 +99,23 @@ protected:
 
 private:
   RCLCPP_DISABLE_COPY(FifoExecutor)
+
+  bool
+  get_next_ready_executable_from_map(
+    AnyExecutable & any_executable,
+    const WeakCallbackGroupsToNodesMap & weak_groups_to_nodes);
+
+  // TODO: Custom allocator here to avoid dynamic memory operations?
+  typedef std::queue<rclcpp::AnyExecutable>
+    ReleasedWorkQueue;
+
+  ReleasedWorkQueue
+  released_work_ RCPPUTILS_TSA_GUARDED_BY(mutex_);
+
+  // TODO: This just hide the base member, which will still be used by all methods not overriden
+  /// The memory strategy: an interface for handling user-defined memory allocation strategies.
+  memory_strategies::allocator_memory_strategy::PrefetchMemoryStrategy<>
+  memory_strategy_ RCPPUTILS_TSA_PT_GUARDED_BY(mutex_);
 
   std::mutex wait_mutex_;
   size_t number_of_threads_;
