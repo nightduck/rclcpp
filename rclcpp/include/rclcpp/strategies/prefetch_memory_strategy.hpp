@@ -50,10 +50,11 @@ namespace prefetch_memory_strategy
  */
 template<
   typename Alloc = std::allocator<void>,
-  typename Adaptor = std::priority_queue<std::shared_ptr<AnyExecutable>>
->
-class PrefetchMemoryStrategy
-  : public memory_strategy::MemoryStrategy
+  class Container = std::vector<AnyExecutable>,    // TODO: Can this use the same kind of allocator?
+  class Compare = std::less<AnyExecutable>,
+  class Adaptor = std::priority_queue<AnyExecutable, Container, Compare>
+  >
+class PrefetchMemoryStrategy : public memory_strategy::MemoryStrategy
 {
 public:
   RCLCPP_SMART_PTR_DEFINITIONS(PrefetchMemoryStrategy)
@@ -598,6 +599,7 @@ public:
         return false;
       }
     }
+    waitable_handles_.push_back(waitable);
   }
 
   bool
