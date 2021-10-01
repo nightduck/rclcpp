@@ -295,44 +295,6 @@ public:
     }
   }
 
-  int
-  get_ready_subscriptions(
-    std::vector<rclcpp::AnyExecutable> & any_execs,
-    const WeakCallbackGroupsToNodesMap & weak_groups_to_nodes)
-  {
-    auto it = subscription_handles_.begin();
-    auto ot = any_execs.begin();
-    while (it != subscription_handles_.end()) {
-      auto subscription = get_subscription_by_handle(*it, weak_groups_to_nodes);
-      if (subscription) {
-        // Find the group for this handle and see if it can be serviced
-        auto group = get_group_by_subscription(subscription, weak_groups_to_nodes);
-        if (!group) {
-          // Group was not found, meaning the subscription is not valid...
-          // Remove it from the ready list and continue looking
-          it = subscription_handles_.erase(it);
-          continue;
-        }
-        if (!group->can_be_taken_from().load()) {
-          // Group is mutually exclusive and is being used, so skip it for now
-          // Leave it to be checked next time, but continue searching
-          ++it;
-          continue;
-        }
-        // Otherwise it is safe to set and return the any_exec
-        (*ot).subscription = subscription;
-        (*ot).callback_group = group;
-        (*ot).node_base = get_node_by_group(group, weak_groups_to_nodes);
-        subscription_handles_.erase(it);
-        ot++;
-      } else {
-        // Else, the subscription is no longer valid, remove it and continue
-        it = subscription_handles_.erase(it);
-      }
-    }
-    return ot - any_execs.begin();
-  }
-
   void
   get_next_service(
     rclcpp::AnyExecutable & any_exec,
@@ -368,44 +330,6 @@ public:
     }
   }
 
-  int
-  get_ready_services(
-    std::vector<rclcpp::AnyExecutable> & any_execs,
-    const WeakCallbackGroupsToNodesMap & weak_groups_to_nodes) 
-  {
-    auto it = service_handles_.begin();
-    auto ot = any_execs.begin();
-    while (it != service_handles_.end() && ot != any_execs.end()) {
-      auto service = get_service_by_handle(*it, weak_groups_to_nodes);
-      if (service) {
-        // Find the group for this handle and see if it can be serviced
-        auto group = get_group_by_service(service, weak_groups_to_nodes);
-        if (!group) {
-          // Group was not found, meaning the service is not valid...
-          // Remove it from the ready list and continue looking
-          it = service_handles_.erase(it);
-          continue;
-        }
-        if (!group->can_be_taken_from().load()) {
-          // Group is mutually exclusive and is being used, so skip it for now
-          // Leave it to be checked next time, but continue searching
-          ++it;
-          continue;
-        }
-        // Otherwise it is safe to set and return the any_exec
-        (*ot).service = service;
-        (*ot).callback_group = group;
-        (*ot).node_base = get_node_by_group(group, weak_groups_to_nodes);
-        service_handles_.erase(it);
-        ot++;
-      } else {
-        // Else, the service is no longer valid, remove it and continue
-        it = service_handles_.erase(it);
-      }
-    }
-    return ot - any_execs.begin();
-  }
-
   void
   get_next_client(
     rclcpp::AnyExecutable & any_exec,
@@ -439,44 +363,6 @@ public:
       // Else, the service is no longer valid, remove it and continue
       it = client_handles_.erase(it);
     }
-  }
-
-  int
-  get_ready_clients(
-    std::vector<rclcpp::AnyExecutable> & any_execs,
-    const WeakCallbackGroupsToNodesMap & weak_groups_to_nodes)
-  {
-    auto it = client_handles_.begin();
-    auto ot = any_execs.begin();
-    while (it != client_handles_.end() && ot != any_execs.end()) {
-      auto client = get_client_by_handle(*it, weak_groups_to_nodes);
-      if (client) {
-        // Find the group for this handle and see if it can be serviced
-        auto group = get_group_by_client(client, weak_groups_to_nodes);
-        if (!group) {
-          // Group was not found, meaning the service is not valid...
-          // Remove it from the ready list and continue looking
-          it = client_handles_.erase(it);
-          continue;
-        }
-        if (!group->can_be_taken_from().load()) {
-          // Group is mutually exclusive and is being used, so skip it for now
-          // Leave it to be checked next time, but continue searching
-          ++it;
-          continue;
-        }
-        // Otherwise it is safe to set and return the any_exec
-        (*ot).client = client;
-        (*ot).callback_group = group;
-        (*ot).node_base = get_node_by_group(group, weak_groups_to_nodes);
-        client_handles_.erase(it);
-        ot++;
-      } else {
-        // Else, the service is no longer valid, remove it and continue
-        it = client_handles_.erase(it);
-      }
-    }
-    return ot - any_execs.begin();
   }
 
   void
@@ -519,49 +405,6 @@ public:
     }
   }
 
-  int
-  get_ready_timers(
-    std::vector<rclcpp::AnyExecutable> & any_execs,
-    const WeakCallbackGroupsToNodesMap & weak_groups_to_nodes)
-  {
-    auto it = timer_handles_.begin();
-    auto ot = any_execs.begin();
-    while (it != timer_handles_.end() && ot != any_execs.end()) {
-      auto timer = get_timer_by_handle(*it, weak_groups_to_nodes);
-      if (timer) {
-        // Find the group for this handle and see if it can be serviced
-        auto group = get_group_by_timer(timer, weak_groups_to_nodes);
-        if (!group) {
-          // Group was not found, meaning the timer is not valid...
-          // Remove it from the ready list and continue looking
-          it = timer_handles_.erase(it);
-          continue;
-        }
-        if (!group->can_be_taken_from().load()) {
-          // Group is mutually exclusive and is being used, so skip it for now
-          // Leave it to be checked next time, but continue searching
-          ++it;
-          continue;
-        }
-        if (!timer->call()) {
-          // timer was cancelled, skip it.
-          ++it;
-          continue;
-        }
-        // Otherwise it is safe to set and return the any_exec
-        (*ot).timer = timer;
-        (*ot).callback_group = group;
-        (*ot).node_base = get_node_by_group(group, weak_groups_to_nodes);
-        timer_handles_.erase(it);
-        ot++;
-      } else {
-        // Else, the timer is no longer valid, remove it and continue
-        it = timer_handles_.erase(it);
-      }
-    }
-    return ot - any_execs.begin();
-  }
-
   void
   get_next_waitable(
     rclcpp::AnyExecutable & any_exec,
@@ -595,44 +438,6 @@ public:
       // Else, the waitable is no longer valid, remove it and continue
       it = waitable_handles_.erase(it);
     }
-  }
-
-  int
-  get_ready_waitables(
-    std::vector<rclcpp::AnyExecutable> & any_execs,
-    const WeakCallbackGroupsToNodesMap & weak_groups_to_nodes)
-  {
-    auto it = waitable_handles_.begin();
-    auto ot = any_execs.begin();
-    while (it != waitable_handles_.end() && ot != any_execs.end()) {
-      auto waitable = *it;
-      if (waitable) {
-        // Find the group for this handle and see if it can be serviced
-        auto group = get_group_by_waitable(waitable, weak_groups_to_nodes);
-        if (!group) {
-          // Group was not found, meaning the waitable is not valid...
-          // Remove it from the ready list and continue looking
-          it = waitable_handles_.erase(it);
-          continue;
-        }
-        if (!group->can_be_taken_from().load()) {
-          // Group is mutually exclusive and is being used, so skip it for now
-          // Leave it to be checked next time, but continue searching
-          ++it;
-          continue;
-        }
-        // Otherwise it is safe to set and return the any_exec
-        (*ot).waitable = waitable;
-        (*ot).callback_group = group;
-        (*ot).node_base = get_node_by_group(group, weak_groups_to_nodes);
-        waitable_handles_.erase(it);
-        ot++;
-      } else {
-        // Else, the waitable is no longer valid, remove it and continue
-        it = waitable_handles_.erase(it);
-      }
-    }
-    return ot - any_execs.begin();
   }
 
   rcl_allocator_t get_allocator() override
