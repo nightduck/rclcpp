@@ -27,10 +27,13 @@ namespace rclcpp
 /// Options to be passed to the executor constructor.
 struct ExecutorOptions
 {
-  ExecutorOptions()
-  : memory_strategy(rclcpp::memory_strategies::create_default_strategy()),
-    context(rclcpp::contexts::get_global_default_context()),
-    max_conditions(0)
+  ExecutorOptions(rclcpp::memory_strategy::MemoryStrategy::SharedPtr mem_strat = 
+                  rclcpp::memory_strategies::create_default_strategy(),
+                  rclcpp::Context::SharedPtr ctx = rclcpp::contexts::get_global_default_context(),
+                  size_t max_cond = 0)
+  : memory_strategy(mem_strat),
+    context(ctx),
+    max_conditions(max_cond)
   {}
 
   rclcpp::memory_strategy::MemoryStrategy::SharedPtr memory_strategy;
