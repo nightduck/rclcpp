@@ -34,10 +34,18 @@ namespace rclcpp
 namespace executors
 {
 
-class FifoExecutor : public rclcpp::Executor
+template<
+  typename Alloc = std::allocator<void>,
+  class Container = std::vector<AnyExecutable, Alloc>,    // TODO: Can this use the same kind of allocator?
+  class Compare = std::less<AnyExecutable>,
+  class Adaptor = std::priority_queue<AnyExecutable, Container, Compare>,
+  class MemStrat = rclcpp::memory_strategies::prefetch_memory_strategy::PrefetchMemoryStrategy<
+      Alloc, Container, Compare, Adaptor>
+>
+class GenericExecutor : public rclcpp::Executor
 {
 public:
-  RCLCPP_SMART_PTR_DEFINITIONS(FifoExecutor)
+  RCLCPP_SMART_PTR_DEFINITIONS(GenericExecutor)
 
   /// Constructor for FifoMttExecutor.
   /**
@@ -54,14 +62,16 @@ public:
    * \param timeout maximum time to wait
    */
   RCLCPP_PUBLIC
-  FifoExecutor(
-    const rclcpp::ExecutorOptions & options = rclcpp::ExecutorOptions(),
+  GenericExecutor(
+    const rclcpp::ExecutorOptions & options,
+    const rclcpp::Context::SharedPtr context = rclcpp::contexts::get_global_default_context(),
+    size_t max_conditions = 0,
     size_t number_of_threads = 0,
     bool yield_before_execute = false,
     std::chrono::nanoseconds timeout = std::chrono::nanoseconds(-1));
 
   RCLCPP_PUBLIC
-  virtual ~FifoExecutor();
+  virtual ~GenericExecutor();
 
   /**
    * \sa rclcpp::Executor:spin() for more details
@@ -98,24 +108,24 @@ protected:
   run(size_t this_thread_number);
 
 private:
-  RCLCPP_DISABLE_COPY(FifoExecutor)
+  RCLCPP_DISABLE_COPY(GenericExecutor)
 
   bool
   get_next_ready_executable_from_map(
     AnyExecutable & any_executable,
     const WeakCallbackGroupsToNodesMap & weak_groups_to_nodes);
 
-  // TODO: Custom allocator here to avoid dynamic memory operations?
-  typedef std::queue<rclcpp::AnyExecutable>
-    ReleasedWorkQueue;
+  // // TODO: Custom allocator here to avoid dynamic memory operations?
+  // typedef std::queue<rclcpp::AnyExecutable>
+  //   ReleasedWorkQueue;
 
-  ReleasedWorkQueue
-  released_work_ RCPPUTILS_TSA_GUARDED_BY(mutex_);
+  // ReleasedWorkQueue
+  // released_work_ RCPPUTILS_TSA_GUARDED_BY(mutex_);
 
-  // TODO: This just hide the base member, which will still be used by all methods not overriden
-  /// The memory strategy: an interface for handling user-defined memory allocation strategies.
-  memory_strategies::allocator_memory_strategy::PrefetchMemoryStrategy<>
-  memory_strategy_ RCPPUTILS_TSA_PT_GUARDED_BY(mutex_);
+  // // TODO: This just hide the base member, which will still be used by all methods not overriden
+  // /// The memory strategy: an interface for handling user-defined memory allocation strategies.
+  // memory_strategies::allocator_memory_strategy::PrefetchMemoryStrategy<std::allocator<void>>
+  // memory_strategy_ RCPPUTILS_TSA_PT_GUARDED_BY(mutex_);
 
   std::mutex wait_mutex_;
   size_t number_of_threads_;
