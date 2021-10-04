@@ -50,25 +50,23 @@ namespace prefetch_memory_strategy
  */
 template<
   typename Alloc = std::allocator<void>,
-  class Container = std::vector<AnyExecutable>,    // TODO: Can this use the same kind of allocator?
-  class Compare = std::less<AnyExecutable>,
-  class Adaptor = std::priority_queue<AnyExecutable, Container, Compare>
+  typename Adaptor = std::priority_queue<AnyExecutable>
   >
-class PrefetchMemoryStrategy : public memory_strategy::MemoryStrategy
+class PrefetchMemoryStrategy
+    : public memory_strategies::allocator_memory_strategy::AllocatorMemoryStrategy<Alloc>
 {
 public:
   RCLCPP_SMART_PTR_DEFINITIONS(PrefetchMemoryStrategy)
 
   // Type checking
   static_assert(
-    std::is_base_of<std::priority_queue<std::shared_ptr<AnyExecutable>>, Adaptor>::value ||
-    std::is_base_of<std::queue<std::shared_ptr<AnyExecutable>>, Adaptor>::value ||
-    std::is_base_of<std::stack<std::shared_ptr<AnyExecutable>>, Adaptor>::value,
-    "Adaptor must be a descendent of a queue, stack, or priority queue, and must use "
-    "AnyExecutable Container, and Compare as its arguments"
+    std::is_base_of<std::priority_queue<AnyExecutable>, Adaptor>::value ||
+    std::is_base_of<std::queue<AnyExecutable>, Adaptor>::value ||
+    std::is_base_of<std::stack<AnyExecutable>, Adaptor>::value,
+    "Adaptor must be a descendent of a queue, stack, or priority queue, and must use AnyExecutable \
+    Container, and Compare as its arguments"
   );
-  static_assert(
-    std::is_same<std::shared_ptr<AnyExecutable>, typename Adaptor::value_type>::value,
+  static_assert(std::is_same<AnyExecutable, typename Adaptor::value_type>::value,
     "value_type of adaptor must be AnyExecutable");
 
   using VoidAllocTraits = typename allocator::AllocRebind<void *, Alloc>;
@@ -238,27 +236,46 @@ public:
           "Couldn't add timer to wait set: %s", rcl_get_error_string().str);
         return false;
       }
-    }
-
-    for (auto guard_condition : guard_conditions_) {
-      if (rcl_wait_set_add_guard_condition(wait_set, guard_condition, NULL) != RCL_RET_OK) {
-        RCUTILS_LOG_ERROR_NAMED(
-          "rclcpp",
-          "Couldn't add guard_condition to wait set: %s",
-          rcl_get_error_string().str);
+    } else if (subscription->can_loan_messages()) {
+      void * loaned_msg = nullptr;
+      try {
+        rcl_ret_t ret = rcl_take_loaned_message(
+            subscription->get_subscription_handle().get(),
+            &loaned_msg,
+            &message_info.get_rmw_message_info(),
+            nullptr);
+        if (RCL_RET_SUBSCRIPTION_TAKE_FAILED == ret) {
+            return false;
+        } else if (RCL_RET_OK != ret) {
+          rclcpp::exceptions::throw_from_rcl_error(ret);
+        }
+        message.reset(loaned_msg);    // TODO: This might be bad. After returning, the shared_ptr is
+                                      //       destroyed, deleting the loaned message. Maybe give it
+                                      //       a pointer to a pointer, like above
+        return true;
+      } catch (const rclcpp::exceptions::RCLError & rcl_error) {
+        RCLCPP_ERROR(
+          rclcpp::get_logger("rclcpp"),
+          "executor %s '%s' unexpectedly failed: %s",
+          "taking a loaned message from topic",
+          subscription->get_topic_name(),
+          rcl_error.what());
+        return false;
+      }
+    } else {
+      message = subscription->create_message();
+      try {
+        return subscription->take_type_erased(message.get(), message_info);
+      } catch (const rclcpp::exceptions::RCLError & rcl_error) {
+        RCLCPP_ERROR(
+          rclcpp::get_logger("rclcpp"),
+          "executor %s '%s' unexpectedly failed: %s",
+          "taking a message from topic",
+          subscription->get_topic_name(),
+          rcl_error.what());
         return false;
       }
     }
-
-    for (auto waitable : waitable_handles_) {
-      if (!waitable->add_to_wait_set(wait_set)) {
-        RCUTILS_LOG_ERROR_NAMED(
-          "rclcpp",
-          "Couldn't add waitable to wait set: %s", rcl_get_error_string().str);
-        return false;
-      }
-    }
-    return true;
   }
 
   void clear_handles() override
@@ -355,6 +372,7 @@ public:
     rclcpp::AnyExecutable & any_exec,
     const WeakCallbackGroupsToNodesMap & weak_groups_to_nodes) override
   {
+    // Get all subscriptions and their messages
     auto it = subscription_handles_.begin();
     while (it != subscription_handles_.end()) {
       auto subscription = get_subscription_by_handle(*it, weak_groups_to_nodes);
@@ -367,16 +385,17 @@ public:
           it = subscription_handles_.erase(it);
           continue;
         }
-        if (!group->can_be_taken_from().load()) {
-          // Group is mutually exclusive and is being used, so skip it for now
-          // Leave it to be checked next time, but continue searching
-          ++it;
-          continue;
-        }
         // Otherwise it is safe to set and return the any_exec
         any_exec.subscription = subscription;
         any_exec.callback_group = group;
         any_exec.node_base = get_node_by_group(group, weak_groups_to_nodes);
+        // Fetch all messages awaiting this subscription
+        std::shared_ptr<void> msg;
+
+        while(get_subscription_message(msg, subscription)) { // && msg != nullptr ???
+          released_work_.emplace({subscription, nullptr, nullptr, nullptr, nullptr, group,
+                                  get_node_by_group(group, weak_groups_to_nodes), msg});
+        }
         subscription_handles_.erase(it);
         return;
       }
