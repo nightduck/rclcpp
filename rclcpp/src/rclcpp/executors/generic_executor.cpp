@@ -25,8 +25,8 @@
 
 using rclcpp::executors::GenericExecutor;
 
-template<typename Alloc, class Container, class Compare, class Adaptor, class MemStrat>
-GenericExecutor<Alloc, Container, Compare, Adaptor, MemStrat>::GenericExecutor(
+template<class MemStrat>
+GenericExecutor<MemStrat>::GenericExecutor(
   const rclcpp::Context::SharedPtr context,
   size_t max_conditions,
   size_t number_of_threads,
@@ -42,12 +42,24 @@ GenericExecutor<Alloc, Container, Compare, Adaptor, MemStrat>::GenericExecutor(
   }
 }
 
-template<typename Alloc, class Container, class Compare, class Adaptor, class MemStrat>
-GenericExecutor<Alloc, Container, Compare, Adaptor, MemStrat>::~GenericExecutor() {}
+template<class MemStrat>
+GenericExecutor<MemStrat>::GenericExecutor(
+  size_t number_of_threads,
+  bool yield_before_execute,
+  std::chrono::nanoseconds next_exec_timeout)
+: GenericExecutor<MemStrat>(
+      rclcpp::contexts::get_global_default_context(),
+      0, number_of_threads, yield_before_execute, next_exec_timeout)
+{}
 
-template<typename Alloc, class Container, class Compare, class Adaptor, class MemStrat>
+template<class MemStrat>
+GenericExecutor<MemStrat>::~GenericExecutor() {}
+
+// This method is defined as an example. It will function as a decentralized non-preemptive
+// scheduler. 
+template<class MemStrat>
 void
-GenericExecutor<Alloc, Container, Compare, Adaptor, MemStrat>::spin()
+GenericExecutor<MemStrat>::spin()
 {
   if (spinning.exchange(true)) {
     throw std::runtime_error("spin() called while already spinning");
@@ -69,16 +81,32 @@ GenericExecutor<Alloc, Container, Compare, Adaptor, MemStrat>::spin()
   }
 }
 
-template<typename Alloc, class Container, class Compare, class Adaptor, class MemStrat>
+template<class MemStrat>
 size_t
-GenericExecutor<Alloc, Container, Compare, Adaptor, MemStrat>::get_number_of_threads()
+GenericExecutor<MemStrat>::get_number_of_threads()
 {
   return number_of_threads_;
 }
 
-template<typename Alloc, class Container, class Compare, class Adaptor, class MemStrat>
+template<class MemStrat>
 void
-GenericExecutor<Alloc, Container, Compare, Adaptor, MemStrat>::run(size_t)
+GenericExecutor<MemStrat>::wait_for_work(std::chrono::nanoseconds timeout)
+{
+  Executor::wait_for_work(timeout);
+  ((MemStrat)memory_strategy_)->collect_work();
+}
+
+template<class MemStrat>
+bool
+GenericExecutor<MemStrat>::get_next_ready_executable(
+  AnyExecutable & any_executable)
+{
+  return ((MemStrat)memory_strategy_)->get_next_executable(any_executable);
+}
+
+template<class MemStrat>
+void
+GenericExecutor<MemStrat>::run(size_t)
 {
   while (rclcpp::ok(this->context_) && spinning.load()) {
     rclcpp::AnyExecutable any_exec;
@@ -101,59 +129,4 @@ GenericExecutor<Alloc, Container, Compare, Adaptor, MemStrat>::run(size_t)
     // resetting the callback group `can_be_taken_from`
     any_exec.callback_group.reset();
   }
-}
-
-template<typename Alloc, class Container, class Compare, class Adaptor, class MemStrat>
-void
-GenericExecutor<Alloc, Container, Compare, Adaptor, MemStrat>::wait_for_work(std::chrono::nanoseconds timeout)
-{
-  Executor::wait_for_work(timeout);
-  ((MemStrat)memory_strategy_)->collect_work();
-}
-
-template<typename Alloc, class Container, class Compare, class Adaptor, class MemStrat>
-bool
-GenericExecutor<Alloc, Container, Compare, Adaptor, MemStrat>::get_ready_executables_from_map(
-  AnyExecutable & any_executable,
-  const WeakCallbackGroupsToNodesMap & weak_groups_to_nodes)
-{
-  return ((MemStrat)memory_strategy_)->get_next_executable(any_executable, weak_groups_to_nodes);
-  // if (released_work_.empty()) {
-  //   return false;
-  // } 
-  // any_executable = released_work_.front();
-
-  // // At this point any_executable should be valid with either a valid subscription
-  // // or a valid timer, or it should be a null shared_ptr
-  // if (any_executable.timer || any_executable.subscription || any_executable.service
-  //       || any_executable.client || any_executable.waitable) {    // TODO: Will this ever be false?
-  //   rclcpp::CallbackGroup::WeakPtr weak_group_ptr = any_executable.callback_group;
-  //   auto iter = weak_groups_to_nodes.find(weak_group_ptr);
-  //   if (iter == weak_groups_to_nodes.end()) {
-  //     released_work_.pop();   // TODO: Verify. If not assigned to executor, then remove?
-  //     return false;
-  //   }
-  // }
-
-  
-  // // If it is valid, check to see if the group is mutually exclusive or
-  // // not, then mark it accordingly ..Check if the callback_group belongs to this executor
-  // if (any_executable.callback_group && any_executable.callback_group->type() == \
-  //   CallbackGroupType::MutuallyExclusive)
-  // {
-  //   // It should not have been taken otherwise
-  //   assert(any_executable.callback_group->can_be_taken_from().load());
-  //   // Set to false to indicate something is being run from this group
-  //   // This is reset to true either when the any_executable is executed or when the
-  //   // any_executable is destructued
-  //   any_executable.callback_group->can_be_taken_from().store(false);
-
-  //   // Return false, but leave in queue for later execution
-  //   return false;
-
-  //   // TODO: Get next available unit of execution. Which means queue might not be best idea
-  // }
-  
-  // released_work_.pop();
-  // return true;
 }
