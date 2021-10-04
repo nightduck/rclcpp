@@ -27,7 +27,6 @@ using rclcpp::executors::GenericExecutor;
 
 template<typename Alloc, class Container, class Compare, class Adaptor, class MemStrat>
 GenericExecutor<Alloc, Container, Compare, Adaptor, MemStrat>::GenericExecutor(
-  const rclcpp::ExecutorOptions & options,
   const rclcpp::Context::SharedPtr context,
   size_t max_conditions,
   size_t number_of_threads,
