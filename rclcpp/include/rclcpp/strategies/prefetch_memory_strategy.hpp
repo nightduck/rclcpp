@@ -16,6 +16,9 @@
 #define RCLCPP__STRATEGIES__PREFETCH_MEMORY_STRATEGY_HPP_
 
 #include <memory>
+#include <queue>
+#include <stack>
+#include <type_traits>
 #include <vector>
 
 #include "rcl/allocator.h"
@@ -52,6 +55,14 @@ class PrefetchMemoryStrategy : public memory_strategy::MemoryStrategy
 {
 public:
   RCLCPP_SMART_PTR_DEFINITIONS(PrefetchMemoryStrategy)
+
+  static_assert(
+    std::is_base_of<std::priority_queue<AnyExecutable, Container, Compare>, Adaptor>::value ||
+    std::is_base_of<std::queue<AnyExecutable, Container>, Adaptor>::value ||
+    std::is_base_of<std::stack<AnyExecutable, Container>, Adaptor>::value,
+    "Adaptor must be a descendent of a queue, stack, or priority queue, and must use AnyExecutable \
+    Container, and Compare as its arguments"
+  );
 
   using VoidAllocTraits = typename allocator::AllocRebind<void *, Alloc>;
   using VoidAlloc = typename VoidAllocTraits::allocator_type;
@@ -555,6 +566,10 @@ public:
   size_t number_of_waitables() const override
   {
     return waitable_handles_.size();
+  }
+
+  bool can_run(const AnyExecutable& any_exec) {
+    return any_exec.callback_group->can_be_taken_from().load();
   }
 
 private:

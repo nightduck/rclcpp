@@ -21,6 +21,7 @@
 #include <queue>
 #include <set>
 #include <thread>
+#include <type_traits>
 #include <unordered_map>
 
 #include "rclcpp/executor.hpp"
@@ -34,6 +35,7 @@ namespace rclcpp
 namespace executors
 {
 
+// TODO: Enforce Adaptor uses correct parameters in its own template: https://www.informit.com/articles/article.aspx?p=376878
 template<
   typename Alloc = std::allocator<void>,
   class Container = std::vector<AnyExecutable, Alloc>,    // TODO: Can this use the same kind of allocator?
@@ -46,6 +48,14 @@ class GenericExecutor : public rclcpp::Executor
 {
 public:
   RCLCPP_SMART_PTR_DEFINITIONS(GenericExecutor)
+
+  static_assert(
+    std::is_base_of<std::priority_queue<AnyExecutable, Container, Compare>, Adaptor>::value ||
+    std::is_base_of<std::queue<AnyExecutable, Container>, Adaptor>::value ||
+    std::is_base_of<std::stack<AnyExecutable, Container>, Adaptor>::value,
+    "Adaptor must be a descendent of a queue, stack, or priority queue, and must use AnyExecutable \
+    Container, and Compare as its arguments"
+  );
 
   /// Constructor for FifoMttExecutor.
   /**
@@ -63,7 +73,6 @@ public:
    */
   RCLCPP_PUBLIC
   GenericExecutor(
-    const rclcpp::ExecutorOptions & options,
     const rclcpp::Context::SharedPtr context = rclcpp::contexts::get_global_default_context(),
     size_t max_conditions = 0,
     size_t number_of_threads = 0,
