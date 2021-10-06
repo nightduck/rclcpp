@@ -50,23 +50,23 @@ namespace prefetch_memory_strategy
  */
 template<
   typename Alloc = std::allocator<void>,
-  typename Adaptor = std::priority_queue<AnyExecutable>
+  typename Adaptor = std::priority_queue<std::shared_ptr<AnyExecutable>>
   >
 class PrefetchMemoryStrategy
-    : public memory_strategies::allocator_memory_strategy::AllocatorMemoryStrategy<Alloc>
+    : public memory_strategy::MemoryStrategy
 {
 public:
   RCLCPP_SMART_PTR_DEFINITIONS(PrefetchMemoryStrategy)
 
   // Type checking
   static_assert(
-    std::is_base_of<std::priority_queue<AnyExecutable>, Adaptor>::value ||
-    std::is_base_of<std::queue<AnyExecutable>, Adaptor>::value ||
-    std::is_base_of<std::stack<AnyExecutable>, Adaptor>::value,
+    std::is_base_of<std::priority_queue<std::shared_ptr<AnyExecutable>>, Adaptor>::value ||
+    std::is_base_of<std::queue<std::shared_ptr<AnyExecutable>>, Adaptor>::value ||
+    std::is_base_of<std::stack<std::shared_ptr<AnyExecutable>>, Adaptor>::value,
     "Adaptor must be a descendent of a queue, stack, or priority queue, and must use AnyExecutable \
     Container, and Compare as its arguments"
   );
-  static_assert(std::is_same<AnyExecutable, typename Adaptor::value_type>::value,
+  static_assert(std::is_same<std::shared_ptr<AnyExecutable>, typename Adaptor::value_type>::value,
     "value_type of adaptor must be AnyExecutable");
 
   using VoidAllocTraits = typename allocator::AllocRebind<void *, Alloc>;
@@ -249,7 +249,7 @@ public:
         } else if (RCL_RET_OK != ret) {
           rclcpp::exceptions::throw_from_rcl_error(ret);
         }
-        message.reset(loaned_msg);    // TODO: This might be bad. After returning, the shared_ptr is
+        message.reset(&loaned_msg);    // TODO: This might be bad. After returning, the shared_ptr is
                                       //       destroyed, deleting the loaned message. Maybe give it
                                       //       a pointer to a pointer, like above
         return true;
@@ -365,6 +365,8 @@ public:
         break;
       }
     }
+
+    return return_val;
   }
 
   void
@@ -396,11 +398,9 @@ public:
           released_work_.emplace({subscription, nullptr, nullptr, nullptr, nullptr, group,
                                   get_node_by_group(group, weak_groups_to_nodes), msg});
         }
-        subscription_handles_.erase(it);
-        return;
+        // Else, the subscription is no longer valid, remove it and continue
+        it = subscription_handles_.erase(it);
       }
-      // Else, the subscription is no longer valid, remove it and continue
-      it = subscription_handles_.erase(it);
     }
   }
 
@@ -434,43 +434,6 @@ public:
         service_handles_.erase(it);
         return;
       }
-      // Else, the service is no longer valid, remove it and continue
-      it = service_handles_.erase(it);
-    }
-  }
-
-  void
-  get_next_client(
-    rclcpp::AnyExecutable & any_exec,
-    const WeakCallbackGroupsToNodesMap & weak_groups_to_nodes) override
-  {
-    auto it = client_handles_.begin();
-    while (it != client_handles_.end()) {
-      auto client = get_client_by_handle(*it, weak_groups_to_nodes);
-      if (client) {
-        // Find the group for this handle and see if it can be serviced
-        auto group = get_group_by_client(client, weak_groups_to_nodes);
-        if (!group) {
-          // Group was not found, meaning the service is not valid...
-          // Remove it from the ready list and continue looking
-          it = client_handles_.erase(it);
-          continue;
-        }
-        if (!group->can_be_taken_from().load()) {
-          // Group is mutually exclusive and is being used, so skip it for now
-          // Leave it to be checked next time, but continue searching
-          ++it;
-          continue;
-        }
-        // Otherwise it is safe to set and return the any_exec
-        any_exec.client = client;
-        any_exec.callback_group = group;
-        any_exec.node_base = get_node_by_group(group, weak_groups_to_nodes);
-        client_handles_.erase(it);
-        return;
-      }
-      // Else, the service is no longer valid, remove it and continue
-      it = client_handles_.erase(it);
     }
   }
 
@@ -544,8 +507,6 @@ public:
         waitable_handles_.erase(it);
         return;
       }
-      // Else, the waitable is no longer valid, remove it and continue
-      it = waitable_handles_.erase(it);
     }
   }
 
