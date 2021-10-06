@@ -277,3 +277,30 @@ TEST_F(TestRTExecutors, priority_checking) {
       return msg->data;
     });
 }
+
+TEST_F(TestRTExecutors, subscription_spam) {
+  rclcpp::executors::GenericExecutor<> executor(2);
+
+  ASSERT_GT(executor.get_number_of_threads(), 1u);
+
+  std::shared_ptr<rclcpp::Node> ping_node =
+    std::make_shared<rclcpp::Node>("ping_node");
+  std::shared_ptr<rclcpp::Node> pong_node =
+    std::make_shared<rclcpp::Node>("pong_node");
+
+  // auto ping_pub = ping_node->create_publisher<test_msgs::msg::Empty>("ping", 10);
+  // auto pong_pub = pong_node->create_publisher<test_msgs::msg::Empty>("pong", 10);
+
+  auto ping_tmr_callback = []() {
+
+  };
+  auto pong_tmr_callback = []() {
+
+  };
+  auto ping_sub_callback = []() {
+
+  };
+  auto pong_sub_callback = []() {
+
+  };
+}

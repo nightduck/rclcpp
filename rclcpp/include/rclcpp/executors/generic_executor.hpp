@@ -143,7 +143,7 @@ private:
 
 
 //// Implementation
-
+// BUG: Preliminary value for number_of_threads is passed to MemStrat. It would need to be corrected
 template<class MemStrat>
 GenericExecutor<MemStrat>::GenericExecutor(
   const rclcpp::Context::SharedPtr context,
@@ -212,6 +212,7 @@ template<class MemStrat>
 void
 GenericExecutor<MemStrat>::wait_for_work(std::chrono::nanoseconds timeout)
 {
+  // TODO: Make atomic
   Executor::wait_for_work(timeout);
   std::static_pointer_cast<MemStrat>(memory_strategy_)->collect_work(weak_groups_to_nodes_);
 }
@@ -221,7 +222,8 @@ bool
 GenericExecutor<MemStrat>::get_next_ready_executable(
   AnyExecutable & any_executable, size_t this_thread_number)
 {
-  return std::static_pointer_cast<MemStrat>(memory_strategy_)->get_next_executable(any_executable);
+  return std::static_pointer_cast<MemStrat>(memory_strategy_)
+            ->get_next_executable(any_executable, this_thread_number);
 }
 
 template<class MemStrat>

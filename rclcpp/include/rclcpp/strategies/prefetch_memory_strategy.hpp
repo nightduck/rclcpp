@@ -605,11 +605,7 @@ public:
 
       for (int i = 0; i < running_work.size(); i++) {
         if (running_work[i]->callback_group == top_ae->callback_group) {
-          assigned_work_[i].push(top_ae);
           released_work_.pop();
-          break;
-        }
-      }
 
       // If the work couldn't run, it should now be assigned to whoever was blocking it
       assert(top_ae != released_work_.top());   // TODO(nightduck): This might be undefined if empty
