@@ -103,7 +103,12 @@ public:
 
   RCLCPP_PUBLIC
   bool
-  get_next_ready_executable(AnyExecutable & any_executable);
+  get_next_ready_executable(AnyExecutable & any_executable, size_t this_thread_number);
+
+  RCLCPP_PUBLIC
+  bool
+  get_next_executable(AnyExecutable & any_executable, std::chrono::nanoseconds timeout,
+    size_t this_thread_number);
 
 protected:
   RCLCPP_PUBLIC
@@ -146,7 +151,8 @@ GenericExecutor<MemStrat>::GenericExecutor(
   size_t number_of_threads,
   bool yield_before_execute,
   std::chrono::nanoseconds next_exec_timeout)
-: rclcpp::Executor(rclcpp::ExecutorOptions(std::make_shared<MemStrat>(), context, max_conditions)),
+: rclcpp::Executor(rclcpp::ExecutorOptions(std::make_shared<MemStrat>(number_of_threads), context,
+                                            max_conditions)),
   yield_before_execute_(yield_before_execute),
   next_exec_timeout_(next_exec_timeout)
 {
@@ -207,20 +213,42 @@ void
 GenericExecutor<MemStrat>::wait_for_work(std::chrono::nanoseconds timeout)
 {
   Executor::wait_for_work(timeout);
-  ((MemStrat)memory_strategy_)->collect_work();
+  std::static_pointer_cast<MemStrat>(memory_strategy_)->collect_work(weak_groups_to_nodes_);
 }
 
 template<class MemStrat>
 bool
 GenericExecutor<MemStrat>::get_next_ready_executable(
-  AnyExecutable & any_executable)
+  AnyExecutable & any_executable, size_t this_thread_number)
 {
-  return ((MemStrat)memory_strategy_)->get_next_executable(any_executable);
+  return std::static_pointer_cast<MemStrat>(memory_strategy_)->get_next_executable(any_executable);
+}
+
+template<class MemStrat>
+bool
+GenericExecutor<MemStrat>::get_next_executable(AnyExecutable & any_executable,
+        std::chrono::nanoseconds timeout, size_t this_thread_number)
+{
+  bool success = false;
+  // Check to see if there are any subscriptions or timers needing service
+  // TODO(wjwwood): improve run to run efficiency of this function
+  success = get_next_ready_executable(any_executable, this_thread_number);
+  // If there are none
+  if (!success) {
+    // Wait for subscriptions or timers to work on
+    wait_for_work(timeout);
+    if (!spinning.load()) {
+      return false;
+    }
+    // Try again
+    success = get_next_ready_executable(any_executable, this_thread_number);
+  }
+  return success;
 }
 
 template<class MemStrat>
 void
-GenericExecutor<MemStrat>::run(size_t)
+GenericExecutor<MemStrat>::run(size_t this_thread_number)
 {
   while (rclcpp::ok(this->context_) && spinning.load()) {
     rclcpp::AnyExecutable any_exec;
@@ -229,7 +257,7 @@ GenericExecutor<MemStrat>::run(size_t)
       if (!rclcpp::ok(this->context_) || !spinning.load()) {
         return;
       }
-      if (!get_next_executable(any_exec, next_exec_timeout_)) {
+      if (!get_next_executable(any_exec, next_exec_timeout_, this_thread_number)) {
         continue;
       }
     }
