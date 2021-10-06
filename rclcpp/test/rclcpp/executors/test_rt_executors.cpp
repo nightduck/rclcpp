@@ -56,9 +56,6 @@ TEST_F(TestRTExecutors, timer_over_take) {
 
   bool yield_before_execute = true;
 
-  rclcpp::memory_strategies::prefetch_memory_strategy::PrefetchMemoryStrategy<> memstrat();
-  rclcpp::memory_strategies::allocator_memory_strategy::AllocatorMemoryStrategy<> allocstrat();
-
   rclcpp::executors::GenericExecutor<> executor;
 
   ASSERT_GT(executor.get_number_of_threads(), 1u);
@@ -100,4 +97,31 @@ TEST_F(TestRTExecutors, timer_over_take) {
   auto timer = node->create_wall_timer(PERIOD_MS, timer_callback, cbg);
   executor.add_node(node);
   executor.spin();
+}
+
+TEST_F(TestRTExecutors, subscription_spam) {
+  rclcpp::executors::GenericExecutor<> executor(2);
+
+  ASSERT_GT(executor.get_number_of_threads(), 1u);
+
+  std::shared_ptr<rclcpp::Node> ping_node =
+    std::make_shared<rclcpp::Node>("ping_node");
+  std::shared_ptr<rclcpp::Node> pong_node =
+    std::make_shared<rclcpp::Node>("pong_node");
+
+  // auto ping_pub = ping_node->create_publisher<test_msgs::msg::Empty>("ping", 10);
+  // auto pong_pub = pong_node->create_publisher<test_msgs::msg::Empty>("pong", 10);
+
+  auto ping_tmr_callback = []() {
+
+  };
+  auto pong_tmr_callback = []() {
+
+  };
+  auto ping_sub_callback = []() {
+
+  };
+  auto pong_sub_callback = []() {
+
+  };
 }
