@@ -50,36 +50,479 @@ namespace prefetch_memory_strategy
  */
 template<
   typename Alloc = std::allocator<void>,
-  typename Adaptor = std::priority_queue<AnyExecutable>
+  typename Adaptor = std::priority_queue<std::shared_ptr<AnyExecutable>>
   >
 class PrefetchMemoryStrategy
-    : public memory_strategies::allocator_memory_strategy::AllocatorMemoryStrategy<Alloc>
+    : public memory_strategy::MemoryStrategy
 {
 public:
   RCLCPP_SMART_PTR_DEFINITIONS(PrefetchMemoryStrategy)
 
   // Type checking
   static_assert(
-    std::is_base_of<std::priority_queue<AnyExecutable>, Adaptor>::value ||
-    std::is_base_of<std::queue<AnyExecutable>, Adaptor>::value ||
-    std::is_base_of<std::stack<AnyExecutable>, Adaptor>::value,
+    std::is_base_of<std::priority_queue<std::shared_ptr<AnyExecutable>>, Adaptor>::value ||
+    std::is_base_of<std::queue<std::shared_ptr<AnyExecutable>>, Adaptor>::value ||
+    std::is_base_of<std::stack<std::shared_ptr<AnyExecutable>>, Adaptor>::value,
     "Adaptor must be a descendent of a queue, stack, or priority queue, and must use AnyExecutable \
     Container, and Compare as its arguments"
   );
-  static_assert(std::is_same<AnyExecutable, typename Adaptor::value_type>::value,
+  static_assert(std::is_same<std::shared_ptr<AnyExecutable>, typename Adaptor::value_type>::value,
     "value_type of adaptor must be AnyExecutable");
 
   using VoidAllocTraits = typename allocator::AllocRebind<void *, Alloc>;
   using VoidAlloc = typename VoidAllocTraits::allocator_type;
 
-  explicit PrefetchMemoryStrategy(std::shared_ptr<Alloc> allocator)
+  explicit PrefetchMemoryStrategy(std::shared_ptr<Alloc> allocator, size_t num_workers = 0)
   {
     allocator_ = std::make_shared<VoidAlloc>(*allocator.get());
   }
 
-  PrefetchMemoryStrategy()
+  PrefetchMemoryStrategy(size_t num_workers = 0)
   {
     allocator_ = std::make_shared<VoidAlloc>();
+  }
+
+  bool collect_entities(const WeakCallbackGroupsToNodesMap & weak_groups_to_nodes) override
+  {
+    bool has_invalid_weak_groups_or_nodes = false;
+    for (const auto & pair : weak_groups_to_nodes) {
+      auto group = pair.first.lock();
+      auto node = pair.second.lock();
+      if (group == nullptr || node == nullptr) {
+        has_invalid_weak_groups_or_nodes = true;
+        continue;
+      }
+      if (!group || !group->can_be_taken_from().load()) {
+        continue;
+      }
+      group->find_subscription_ptrs_if(
+        [this](const rclcpp::SubscriptionBase::SharedPtr & subscription) {
+          subscription_handles_.push_back(subscription->get_subscription_handle());
+          return false;
+        });
+      group->find_service_ptrs_if(
+        [this](const rclcpp::ServiceBase::SharedPtr & service) {
+          service_handles_.push_back(service->get_service_handle());
+          return false;
+        });
+      group->find_client_ptrs_if(
+        [this](const rclcpp::ClientBase::SharedPtr & client) {
+          client_handles_.push_back(client->get_client_handle());
+          return false;
+        });
+      group->find_timer_ptrs_if(
+        [this](const rclcpp::TimerBase::SharedPtr & timer) {
+          timer_handles_.push_back(timer->get_timer_handle());
+          return false;
+        });
+      group->find_waitable_ptrs_if(
+        [this](const rclcpp::Waitable::SharedPtr & waitable) {
+          waitable_handles_.push_back(waitable);
+          return false;
+        });
+    }
+
+    return has_invalid_weak_groups_or_nodes;
+  }
+
+  size_t number_of_ready_subscriptions() const override
+  {
+    size_t number_of_subscriptions = subscription_handles_.size();
+    for (auto waitable : waitable_handles_) {
+      number_of_subscriptions += waitable->get_number_of_ready_subscriptions();
+    }
+    return number_of_subscriptions;
+  }
+
+  size_t number_of_ready_services() const override
+  {
+    size_t number_of_services = service_handles_.size();
+    for (auto waitable : waitable_handles_) {
+      number_of_services += waitable->get_number_of_ready_services();
+    }
+    return number_of_services;
+  }
+
+  size_t number_of_ready_events() const override
+  {
+    size_t number_of_events = 0;
+    for (auto waitable : waitable_handles_) {
+      number_of_events += waitable->get_number_of_ready_events();
+    }
+    return number_of_events;
+  }
+
+  size_t number_of_ready_clients() const override
+  {
+    size_t number_of_clients = client_handles_.size();
+    for (auto waitable : waitable_handles_) {
+      number_of_clients += waitable->get_number_of_ready_clients();
+    }
+    return number_of_clients;
+  }
+
+  size_t number_of_guard_conditions() const override
+  {
+    size_t number_of_guard_conditions = guard_conditions_.size();
+    for (auto waitable : waitable_handles_) {
+      number_of_guard_conditions += waitable->get_number_of_ready_guard_conditions();
+    }
+    return number_of_guard_conditions;
+  }
+
+  size_t number_of_ready_timers() const override
+  {
+    size_t number_of_timers = timer_handles_.size();
+    for (auto waitable : waitable_handles_) {
+      number_of_timers += waitable->get_number_of_ready_timers();
+    }
+    return number_of_timers;
+  }
+
+  size_t number_of_waitables() const override
+  {
+    return waitable_handles_.size();
+  }
+
+  void add_waitable_handle(const rclcpp::Waitable::SharedPtr & waitable) override
+  {
+    if (nullptr == waitable) {
+      throw std::runtime_error("waitable object unexpectedly nullptr");
+    }
+    waitable_handles_.push_back(waitable);
+  }
+
+  bool add_handles_to_wait_set(rcl_wait_set_t * wait_set) override
+  {
+    for (auto subscription : subscription_handles_) {
+      if (rcl_wait_set_add_subscription(wait_set, subscription.get(), NULL) != RCL_RET_OK) {
+        RCUTILS_LOG_ERROR_NAMED(
+          "rclcpp",
+          "Couldn't add subscription to wait set: %s", rcl_get_error_string().str);
+        return false;
+      }
+    }
+
+    for (auto client : client_handles_) {
+      if (rcl_wait_set_add_client(wait_set, client.get(), NULL) != RCL_RET_OK) {
+        RCUTILS_LOG_ERROR_NAMED(
+          "rclcpp",
+          "Couldn't add client to wait set: %s", rcl_get_error_string().str);
+        return false;
+      }
+    }
+
+    for (auto service : service_handles_) {
+      if (rcl_wait_set_add_service(wait_set, service.get(), NULL) != RCL_RET_OK) {
+        RCUTILS_LOG_ERROR_NAMED(
+          "rclcpp",
+          "Couldn't add service to wait set: %s", rcl_get_error_string().str);
+        return false;
+      }
+    }
+
+    for (auto timer : timer_handles_) {
+      if (rcl_wait_set_add_timer(wait_set, timer.get(), NULL) != RCL_RET_OK) {
+        RCUTILS_LOG_ERROR_NAMED(
+          "rclcpp",
+          "Couldn't add timer to wait set: %s", rcl_get_error_string().str);
+        return false;
+      }
+    }
+
+    for (auto guard_condition : guard_conditions_) {
+      if (rcl_wait_set_add_guard_condition(wait_set, guard_condition, NULL) != RCL_RET_OK) {
+        RCUTILS_LOG_ERROR_NAMED(
+          "rclcpp",
+          "Couldn't add guard_condition to wait set: %s",
+          rcl_get_error_string().str);
+        return false;
+      }
+    }
+
+    for (auto waitable : waitable_handles_) {
+      if (!waitable->add_to_wait_set(wait_set)) {
+        RCUTILS_LOG_ERROR_NAMED(
+          "rclcpp",
+          "Couldn't add waitable to wait set: %s", rcl_get_error_string().str);
+        return false;
+      }
+    }
+    return true;
+  }
+
+  void clear_handles() override
+  {
+    subscription_handles_.clear();
+    service_handles_.clear();
+    client_handles_.clear();
+    timer_handles_.clear();
+    waitable_handles_.clear();
+  }
+
+  void remove_null_handles(rcl_wait_set_t * wait_set) override
+  {
+    // TODO(jacobperron): Check if wait set sizes are what we expect them to be?
+    //                    e.g. wait_set->size_of_clients == client_handles_.size()
+
+    // Important to use subscription_handles_.size() instead of wait set's size since
+    // there may be more subscriptions in the wait set due to Waitables added to the end.
+    // The same logic applies for other entities.
+    for (size_t i = 0; i < subscription_handles_.size(); ++i) {
+      if (!wait_set->subscriptions[i]) {
+        subscription_handles_[i].reset();
+      }
+    }
+    for (size_t i = 0; i < service_handles_.size(); ++i) {
+      if (!wait_set->services[i]) {
+        service_handles_[i].reset();
+      }
+    }
+    for (size_t i = 0; i < client_handles_.size(); ++i) {
+      if (!wait_set->clients[i]) {
+        client_handles_[i].reset();
+      }
+    }
+    for (size_t i = 0; i < timer_handles_.size(); ++i) {
+      if (!wait_set->timers[i]) {
+        timer_handles_[i].reset();
+      }
+    }
+    for (size_t i = 0; i < waitable_handles_.size(); ++i) {
+      if (!waitable_handles_[i]->is_ready(wait_set)) {
+        waitable_handles_[i].reset();
+      }
+    }
+
+    subscription_handles_.erase(
+      std::remove(subscription_handles_.begin(), subscription_handles_.end(), nullptr),
+      subscription_handles_.end()
+    );
+
+    service_handles_.erase(
+      std::remove(service_handles_.begin(), service_handles_.end(), nullptr),
+      service_handles_.end()
+    );
+
+    client_handles_.erase(
+      std::remove(client_handles_.begin(), client_handles_.end(), nullptr),
+      client_handles_.end()
+    );
+
+    timer_handles_.erase(
+      std::remove(timer_handles_.begin(), timer_handles_.end(), nullptr),
+      timer_handles_.end()
+    );
+
+    waitable_handles_.erase(
+      std::remove(waitable_handles_.begin(), waitable_handles_.end(), nullptr),
+      waitable_handles_.end()
+    );
+  }
+
+  void add_guard_condition(const rcl_guard_condition_t * guard_condition) override
+  {
+    for (const auto & existing_guard_condition : guard_conditions_) {
+      if (existing_guard_condition == guard_condition) {
+        return;
+      }
+    }
+    guard_conditions_.push_back(guard_condition);
+  }
+
+  void remove_guard_condition(const rcl_guard_condition_t * guard_condition) override
+  {
+    for (auto it = guard_conditions_.begin(); it != guard_conditions_.end(); ++it) {
+      if (*it == guard_condition) {
+        guard_conditions_.erase(it);
+        break;
+      }
+    }
+  }
+
+  void
+  get_next_subscription(
+    rclcpp::AnyExecutable & any_exec,
+    const WeakCallbackGroupsToNodesMap & weak_groups_to_nodes) override
+  {
+    auto it = subscription_handles_.begin();
+    while (it != subscription_handles_.end()) {
+      auto subscription = get_subscription_by_handle(*it, weak_groups_to_nodes);
+      if (subscription) {
+        // Find the group for this handle and see if it can be serviced
+        auto group = get_group_by_subscription(subscription, weak_groups_to_nodes);
+        if (!group) {
+          // Group was not found, meaning the subscription is not valid...
+          // Remove it from the ready list and continue looking
+          it = subscription_handles_.erase(it);
+          continue;
+        }
+        if (!group->can_be_taken_from().load()) {
+          // Group is mutually exclusive and is being used, so skip it for now
+          // Leave it to be checked next time, but continue searching
+          ++it;
+          continue;
+        }
+        // Otherwise it is safe to set and return the any_exec
+        any_exec.subscription = subscription;
+        any_exec.callback_group = group;
+        any_exec.node_base = get_node_by_group(group, weak_groups_to_nodes);
+        subscription_handles_.erase(it);
+        return;
+      }
+      // Else, the subscription is no longer valid, remove it and continue
+      it = subscription_handles_.erase(it);
+    }
+  }
+
+  void
+  get_next_service(
+    rclcpp::AnyExecutable & any_exec,
+    const WeakCallbackGroupsToNodesMap & weak_groups_to_nodes) override
+  {
+    auto it = service_handles_.begin();
+    while (it != service_handles_.end()) {
+      auto service = get_service_by_handle(*it, weak_groups_to_nodes);
+      if (service) {
+        // Find the group for this handle and see if it can be serviced
+        auto group = get_group_by_service(service, weak_groups_to_nodes);
+        if (!group) {
+          // Group was not found, meaning the service is not valid...
+          // Remove it from the ready list and continue looking
+          it = service_handles_.erase(it);
+          continue;
+        }
+        if (!group->can_be_taken_from().load()) {
+          // Group is mutually exclusive and is being used, so skip it for now
+          // Leave it to be checked next time, but continue searching
+          ++it;
+          continue;
+        }
+        // Otherwise it is safe to set and return the any_exec
+        any_exec.service = service;
+        any_exec.callback_group = group;
+        any_exec.node_base = get_node_by_group(group, weak_groups_to_nodes);
+        service_handles_.erase(it);
+        return;
+      }
+      // Else, the service is no longer valid, remove it and continue
+      it = service_handles_.erase(it);
+    }
+  }
+
+  void
+  get_next_client(
+    rclcpp::AnyExecutable & any_exec,
+    const WeakCallbackGroupsToNodesMap & weak_groups_to_nodes) override
+  {
+    auto it = client_handles_.begin();
+    while (it != client_handles_.end()) {
+      auto client = get_client_by_handle(*it, weak_groups_to_nodes);
+      if (client) {
+        // Find the group for this handle and see if it can be serviced
+        auto group = get_group_by_client(client, weak_groups_to_nodes);
+        if (!group) {
+          // Group was not found, meaning the service is not valid...
+          // Remove it from the ready list and continue looking
+          it = client_handles_.erase(it);
+          continue;
+        }
+        if (!group->can_be_taken_from().load()) {
+          // Group is mutually exclusive and is being used, so skip it for now
+          // Leave it to be checked next time, but continue searching
+          ++it;
+          continue;
+        }
+        // Otherwise it is safe to set and return the any_exec
+        any_exec.client = client;
+        any_exec.callback_group = group;
+        any_exec.node_base = get_node_by_group(group, weak_groups_to_nodes);
+        client_handles_.erase(it);
+        return;
+      }
+      // Else, the service is no longer valid, remove it and continue
+      it = client_handles_.erase(it);
+    }
+  }
+
+  void
+  get_next_timer(
+    rclcpp::AnyExecutable & any_exec,
+    const WeakCallbackGroupsToNodesMap & weak_groups_to_nodes) override
+  {
+    auto it = timer_handles_.begin();
+    while (it != timer_handles_.end()) {
+      auto timer = get_timer_by_handle(*it, weak_groups_to_nodes);
+      if (timer) {
+        // Find the group for this handle and see if it can be serviced
+        auto group = get_group_by_timer(timer, weak_groups_to_nodes);
+        if (!group) {
+          // Group was not found, meaning the timer is not valid...
+          // Remove it from the ready list and continue looking
+          it = timer_handles_.erase(it);
+          continue;
+        }
+        if (!group->can_be_taken_from().load()) {
+          // Group is mutually exclusive and is being used, so skip it for now
+          // Leave it to be checked next time, but continue searching
+          ++it;
+          continue;
+        }
+        if (!timer->call()) {
+          // timer was cancelled, skip it.
+          ++it;
+          continue;
+        }
+        // Otherwise it is safe to set and return the any_exec
+        any_exec.timer = timer;
+        any_exec.callback_group = group;
+        any_exec.node_base = get_node_by_group(group, weak_groups_to_nodes);
+        timer_handles_.erase(it);
+        return;
+      }
+      // Else, the timer is no longer valid, remove it and continue
+      it = timer_handles_.erase(it);
+    }
+  }
+
+  void
+  get_next_waitable(
+    rclcpp::AnyExecutable & any_exec,
+    const WeakCallbackGroupsToNodesMap & weak_groups_to_nodes) override
+  {
+    auto it = waitable_handles_.begin();
+    while (it != waitable_handles_.end()) {
+      auto waitable = *it;
+      if (waitable) {
+        // Find the group for this handle and see if it can be serviced
+        auto group = get_group_by_waitable(waitable, weak_groups_to_nodes);
+        if (!group) {
+          // Group was not found, meaning the waitable is not valid...
+          // Remove it from the ready list and continue looking
+          it = waitable_handles_.erase(it);
+          continue;
+        }
+        if (!group->can_be_taken_from().load()) {
+          // Group is mutually exclusive and is being used, so skip it for now
+          // Leave it to be checked next time, but continue searching
+          ++it;
+          continue;
+        }
+        // Otherwise it is safe to set and return the any_exec
+        any_exec.waitable = waitable;
+        any_exec.callback_group = group;
+        any_exec.node_base = get_node_by_group(group, weak_groups_to_nodes);
+        waitable_handles_.erase(it);
+        return;
+      }
+      // Else, the waitable is no longer valid, remove it and continue
+      it = waitable_handles_.erase(it);
+    }
+  }
+  
+  rcl_allocator_t get_allocator() override
+  {
+    return rclcpp::allocator::get_rcl_allocator<void *, VoidAlloc>(*allocator_.get());
   }
 
   bool
@@ -118,7 +561,7 @@ public:
         } else if (RCL_RET_OK != ret) {
           rclcpp::exceptions::throw_from_rcl_error(ret);
         }
-        message.reset(loaned_msg);    // TODO: This might be bad. After returning, the shared_ptr is
+        message.reset(&loaned_msg);    // TODO: This might be bad. After returning, the shared_ptr is
                                       //       destroyed, deleting the loaned message. Maybe give it
                                       //       a pointer to a pointer, like above
         return true;
@@ -159,22 +602,27 @@ public:
       return false;
     }
 
-    any_exec = released_work_.top();
+    std::shared_ptr<AnyExecutable> top;
+    top = released_work_.top();
     released_work_.pop();
 
     // If I can't run this work, keep searching until I find one I can
-    std::forward_list<AnyExecutable> excluded_work;
-    while (!can_run(any_exec) && !released_work_.empty())
+    std::forward_list<std::shared_ptr<AnyExecutable>> excluded_work;
+    while (!released_work_.empty() && !can_run(*top))
     {
-      excluded_work.push_front(any_exec);
-      any_exec = released_work_.top();
+      excluded_work.push_front(top);
+      top = released_work_.top();
       released_work_.pop();
     }
     
+    bool return_val = !released_work_.empty();
+
     // Put them all back
-    for(AnyExecutable ae : excluded_work) {
+    for(std::shared_ptr<AnyExecutable> ae : excluded_work) {
       released_work_.push(ae);
     }
+
+    return return_val;
   }
 
   void
@@ -182,138 +630,168 @@ public:
     const WeakCallbackGroupsToNodesMap & weak_groups_to_nodes
     )
   {
-    // Get all subscriptions and their messages
-    auto it = subscription_handles_.begin();
-    while (it != subscription_handles_.end()) {
-      auto subscription = get_subscription_by_handle(*it, weak_groups_to_nodes);
-      if (subscription) {
-        // Find the group for this handle and see if it can be serviced
-        auto group = get_group_by_subscription(subscription, weak_groups_to_nodes);
-        if (!group) {
-          // Group was not found, meaning the subscription is not valid...
-          // Remove it from the ready list and continue looking
-          it = subscription_handles_.erase(it);
-          continue;
-        }
-        // Otherwise it is safe to set and return the any_exec
-        // Fetch all messages awaiting this subscription
-        std::shared_ptr<void> msg;
+    {
+      // Get all subscriptions and their messages
+      auto it = subscription_handles_.begin();
+      while (it != subscription_handles_.end()) {
+        auto subscription = get_subscription_by_handle(*it, weak_groups_to_nodes);
+        if (subscription) {
+          // Find the group for this handle and see if it can be serviced
+          auto group = get_group_by_subscription(subscription, weak_groups_to_nodes);
+          if (!group) {
+            // Group was not found, meaning the subscription is not valid...
+            // Remove it from the ready list and continue looking
+            it = subscription_handles_.erase(it);
+            continue;
+          }
+          // Otherwise it is safe to set and return the any_exec
+          // Fetch all messages awaiting this subscription
+          std::shared_ptr<void> msg;
 
-        while(get_subscription_message(msg, subscription)) { // && msg != nullptr ???
-          released_work_.emplace({subscription, nullptr, nullptr, nullptr, nullptr, group,
-                                  get_node_by_group(group, weak_groups_to_nodes), msg});
+          while(get_subscription_message(msg, subscription)) { // && msg != nullptr ???
+            std::shared_ptr<rclcpp::AnyExecutable> ae = std::make_shared<rclcpp::AnyExecutable>();
+            ae->subscription = subscription;
+            ae->callback_group = group;
+            ae->node_base = get_node_by_group(group, weak_groups_to_nodes);
+            ae->data = msg;
+            released_work_.push(ae);
+          }
+          subscription_handles_.erase(it);
+          return;
         }
-        subscription_handles_.erase(it);
-        return;
+        // Else, the subscription is no longer valid, remove it and continue
+        it = subscription_handles_.erase(it);
       }
-      // Else, the subscription is no longer valid, remove it and continue
-      it = subscription_handles_.erase(it);
     }
 
-    // Get all triggered timers
-    it = timer_handles_.begin();
-    while (it != timer_handles_.end()) {
-      auto timer = get_timer_by_handle(*it, weak_groups_to_nodes);
-      if (timer) {
-        // Find the group for this handle and see if it can be serviced
-        auto group = get_group_by_timer(timer, weak_groups_to_nodes);
-        if (!group) {
-          // Group was not found, meaning the timer is not valid...
-          // Remove it from the ready list and continue looking
-          it = timer_handles_.erase(it);
-          continue;
+    {
+      // Get all triggered timers
+      auto it = timer_handles_.begin();
+      while (it != timer_handles_.end()) {
+        auto timer = get_timer_by_handle(*it, weak_groups_to_nodes);
+        if (timer) {
+          // Find the group for this handle and see if it can be serviced
+          auto group = get_group_by_timer(timer, weak_groups_to_nodes);
+          if (!group) {
+            // Group was not found, meaning the timer is not valid...
+            // Remove it from the ready list and continue looking
+            it = timer_handles_.erase(it);
+            continue;
+          }
+          if (!timer->call()) {
+            // timer was cancelled, skip it.
+            ++it;
+            continue;
+          }
+          // Otherwise it is safe to set and return the any_exec
+          std::shared_ptr<rclcpp::AnyExecutable> ae = std::make_shared<rclcpp::AnyExecutable>();
+          ae->timer = timer;
+          ae->callback_group = group;
+          ae->node_base = get_node_by_group(group, weak_groups_to_nodes);
+          released_work_.push(ae);
+          
+          timer_handles_.erase(it);
         }
-        if (!timer->call()) {
-          // timer was cancelled, skip it.
-          ++it;
-          continue;
-        }
-        // Otherwise it is safe to set and return the any_exec
-        released_work_.emplace({nullptr, timer, nullptr, nullptr, nullptr, group,
-                                get_node_by_group(group, weak_groups_to_nodes), nullptr});
-        timer_handles_.erase(it);
+        // Else, the timer is no longer valid, remove it and continue
+        it = timer_handles_.erase(it);
       }
-      // Else, the timer is no longer valid, remove it and continue
-      it = timer_handles_.erase(it);
     }
 
-    // Get all services and their requests
-    it = service_handles_.begin();
-    while (it != service_handles_.end()) {
-      auto service = get_service_by_handle(*it, weak_groups_to_nodes);
-      if (service) {
-        // Find the group for this handle and see if it can be serviced
-        auto group = get_group_by_service(service, weak_groups_to_nodes);
-        if (!group) {
-          // Group was not found, meaning the service is not valid...
-          // Remove it from the ready list and continue looking
-          it = service_handles_.erase(it);
-          continue;
+    {
+      // Get all services and their requests
+      auto it = service_handles_.begin();
+      while (it != service_handles_.end()) {
+        auto service = get_service_by_handle(*it, weak_groups_to_nodes);
+        if (service) {
+          // Find the group for this handle and see if it can be serviced
+          auto group = get_group_by_service(service, weak_groups_to_nodes);
+          if (!group) {
+            // Group was not found, meaning the service is not valid...
+            // Remove it from the ready list and continue looking
+            it = service_handles_.erase(it);
+            continue;
+          }
+          // Otherwise it is safe to set and return the any_exec
+          // Fetch all messages awaiting this service
+          auto request_header = service->create_request_header();
+          std::shared_ptr<void> request = service->create_request();
+          
+          while(service->take_type_erased_request(request.get(), *request_header)) {
+            std::shared_ptr<rclcpp::AnyExecutable> ae = std::make_shared<rclcpp::AnyExecutable>();
+            ae->service = service;
+            ae->callback_group = group;
+            ae->node_base = get_node_by_group(group, weak_groups_to_nodes);
+            ae->data = request;
+            released_work_.push(ae);
+          }
+          service_handles_.erase(it);
         }
-        // Otherwise it is safe to set and return the any_exec
-        // Fetch all messages awaiting this service
-        auto request_header = service->create_request_header();
-        std::shared_ptr<void> request = service->create_request();
-        
-        while(service->take_type_erased_request(request.get(), *request_header)) {
-          released_work_.emplace({nullptr, nullptr, service, nullptr, nullptr, group,
-                                  get_node_by_group(group, weak_groups_to_nodes), request});
-        }
-        service_handles_.erase(it);
+        // Else, the service is no longer valid, remove it and continue
+        it = service_handles_.erase(it);
       }
-      // Else, the service is no longer valid, remove it and continue
-      it = service_handles_.erase(it);
     }
 
-    // Get all clients and their responses
-    it = client_handles_.begin();
-    while (it != client_handles_.end()) {
-      auto client = get_client_by_handle(*it, weak_groups_to_nodes);
-      if (client) {
-        // Find the group for this handle and see if it can be serviced
-        auto group = get_group_by_client(client, weak_groups_to_nodes);
-        if (!group) {
-          // Group was not found, meaning the service is not valid...
-          // Remove it from the ready list and continue looking
-          it = client_handles_.erase(it);
-          continue;
+    {
+      // Get all clients and their responses
+      auto it = client_handles_.begin();
+      while (it != client_handles_.end()) {
+        auto client = get_client_by_handle(*it, weak_groups_to_nodes);
+        if (client) {
+          // Find the group for this handle and see if it can be serviced
+          auto group = get_group_by_client(client, weak_groups_to_nodes);
+          if (!group) {
+            // Group was not found, meaning the service is not valid...
+            // Remove it from the ready list and continue looking
+            it = client_handles_.erase(it);
+            continue;
+          }
+          // Otherwise it is safe to set and return the any_exec
+          // Fetch all messages awaiting this client
+          auto request_header = client->create_request_header();
+          std::shared_ptr<void> response = client->create_response();
+          
+          while(client->take_type_erased_response(response.get(), *request_header)) {\
+            std::shared_ptr<rclcpp::AnyExecutable> ae = std::make_shared<rclcpp::AnyExecutable>();
+            ae->client = client;
+            ae->callback_group = group;
+            ae->node_base = get_node_by_group(group, weak_groups_to_nodes);
+            ae->data = response;
+            released_work_.push(ae);
+          }
+          client_handles_.erase(it);
         }
-        // Otherwise it is safe to set and return the any_exec
-        // Fetch all messages awaiting this client
-        auto request_header = client->create_request_header();
-        std::shared_ptr<void> response = client->create_response();
-        
-        while(client->take_type_erased_response(response.get(), *request_header)) {
-          released_work_.emplace({nullptr, nullptr, nullptr, client, nullptr, group,
-                                  get_node_by_group(group, weak_groups_to_nodes), response});
-        }
-        client_handles_.erase(it);
+        // Else, the service is no longer valid, remove it and continue
+        it = client_handles_.erase(it);
       }
-      // Else, the service is no longer valid, remove it and continue
-      it = client_handles_.erase(it);
     }
 
-    // Get all waitables
-    it = waitable_handles_.begin();
-    while (it != waitable_handles_.end()) {
-      auto waitable = *it;
-      if (waitable) {
-        // Find the group for this handle and see if it can be serviced
-        auto group = get_group_by_waitable(waitable, weak_groups_to_nodes);
-        if (!group) {
-          // Group was not found, meaning the waitable is not valid...
-          // Remove it from the ready list and continue looking
-          it = waitable_handles_.erase(it);
-          continue;
+    {
+      // Get all waitables
+      auto it = waitable_handles_.begin();
+      while (it != waitable_handles_.end()) {
+        auto waitable = *it;
+        if (waitable) {
+          // Find the group for this handle and see if it can be serviced
+          auto group = get_group_by_waitable(waitable, weak_groups_to_nodes);
+          if (!group) {
+            // Group was not found, meaning the waitable is not valid...
+            // Remove it from the ready list and continue looking
+            it = waitable_handles_.erase(it);
+            continue;
+          }
+          // Otherwise it is safe to set and return the any_exec
+          std::shared_ptr<rclcpp::AnyExecutable> ae = std::make_shared<rclcpp::AnyExecutable>();
+          ae->waitable = waitable;
+          ae->callback_group = group;
+          ae->node_base = get_node_by_group(group, weak_groups_to_nodes);
+          released_work_.push(ae);
+
+          waitable_handles_.erase(it);
+          return;
         }
-        // Otherwise it is safe to set and return the any_exec
-        released_work_.emplace({nullptr, nullptr, nullptr, nullptr, waitable, group,
-                                get_node_by_group(group, weak_groups_to_nodes), nullptr});
-        waitable_handles_.erase(it);
-        return;
+        // Else, the waitable is no longer valid, remove it and continue
+        it = waitable_handles_.erase(it);
       }
-      // Else, the waitable is no longer valid, remove it and continue
-      it = waitable_handles_.erase(it);
     }
   }
 
