@@ -75,11 +75,19 @@ public:
   explicit PrefetchMemoryStrategy(std::shared_ptr<Alloc> allocator, size_t num_workers = 0)
   {
     allocator_ = std::make_shared<VoidAlloc>(*allocator.get());
+    assigned_work_.resize(num_workers);
+    for(int i = 0; i < num_workers; i++) {
+      assigned_work_.push_back(std::queue<std::shared_ptr<AnyExecutable>>());
+    }
   }
 
   PrefetchMemoryStrategy(size_t num_workers = 0)
   {
     allocator_ = std::make_shared<VoidAlloc>();
+    assigned_work_.resize(num_workers);
+    for(int i = 0; i < num_workers; i++) {
+      assigned_work_.push_back(std::queue<std::shared_ptr<AnyExecutable>>());
+    }
   }
 
   bool collect_entities(const WeakCallbackGroupsToNodesMap & weak_groups_to_nodes) override
@@ -592,39 +600,48 @@ public:
 
   bool
   get_next_executable(
-    rclcpp::AnyExecutable & any_exec
+    rclcpp::AnyExecutable & any_exec,
+    size_t worker_id
   ) {
-    // TODO: Find a more efficient way to skip over excluded work. Insertions and deletions are
-    //       each O(logn) from the priority queue
-    // TODO: As is, it does not consider weak_groups_to_nodes, 
+    // TODO: Make atomic
+    // TODO: As is, it does not consider weak_groups_to_nodes
 
+    // If this worker was given work, check that first
+    if (!assigned_work_[worker_id].empty()) {
+      any_exec = *assigned_work_[worker_id].front();
+      assigned_work_[worker_id].pop();
+      return true;
+    }
+
+    // If there's any high priority tasks being blocked by mutual exclusion, assign them to worker
+    // that's blocking them
+    while (!released_work_.empty() && !can_run(*released_work_.top())) {
+      std::shared_ptr<AnyExecutable> top_ae = released_work_.top();
+
+      for(int i = 0; i < running_work.size(); i++) {
+        if (running_work[i]->callback_group == top_ae->callback_group) {
+          assigned_work_[i].push(top_ae);
+          released_work_.pop();
+          break;
+        }
+      }
+
+      // If the work couldn't run, it should now be assigned to whoever was blocking it
+      assert(top_ae != released_work_.top());   // TODO: This might be undefined if empty
+    }
+
+    // If there's tasks left, they can be run
     if (released_work_.empty()) {
       return false;
-    }
-
-    std::shared_ptr<AnyExecutable> top;
-    top = released_work_.top();
-    released_work_.pop();
-
-    // If I can't run this work, keep searching until I find one I can
-    std::forward_list<std::shared_ptr<AnyExecutable>> excluded_work;
-    while (!released_work_.empty() && !can_run(*top))
-    {
-      excluded_work.push_front(top);
-      top = released_work_.top();
+    } else {
+      any_exec = *released_work_.top();
       released_work_.pop();
+      return true;
     }
-    
-    bool return_val = !released_work_.empty();
-
-    // Put them all back
-    for(std::shared_ptr<AnyExecutable> ae : excluded_work) {
-      released_work_.push(ae);
-    }
-
-    return return_val;
   }
 
+  // TODO: Add overloaded version which takes reference to container and Functor for filtering.
+  //       Useful for decentralized planning
   void
   collect_work(
     const WeakCallbackGroupsToNodesMap & weak_groups_to_nodes
@@ -799,6 +816,14 @@ public:
     return any_exec.callback_group->can_be_taken_from().load();
   }
 
+protected:
+  Adaptor released_work_;
+
+  // TODO: Incorporate this into generics
+  std::vector<std::queue<std::shared_ptr<AnyExecutable>>> assigned_work_;
+  std::vector<std::shared_ptr<AnyExecutable>> running_work;
+
+
 private:
   template<typename T>
   using VectorRebind =
@@ -812,7 +837,6 @@ private:
   VectorRebind<std::shared_ptr<const rcl_timer_t>> timer_handles_;
   VectorRebind<std::shared_ptr<Waitable>> waitable_handles_;
 
-  Adaptor released_work_;
 
   std::shared_ptr<VoidAlloc> allocator_;
 
