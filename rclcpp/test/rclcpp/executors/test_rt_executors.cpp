@@ -25,6 +25,9 @@
 
 #include "rclcpp/strategies/allocator_memory_strategy.hpp"
 
+
+#include "std_msgs/msg/int32.hpp"
+
 using namespace std::chrono_literals;
 
 class TestRTExecutors : public ::testing::Test
@@ -109,13 +112,40 @@ TEST_F(TestRTExecutors, subscription_spam) {
   std::shared_ptr<rclcpp::Node> pong_node =
     std::make_shared<rclcpp::Node>("pong_node");
 
-  // auto ping_pub = ping_node->create_publisher<test_msgs::msg::Empty>("ping", 10);
-  // auto pong_pub = pong_node->create_publisher<test_msgs::msg::Empty>("pong", 10);
+  
+  auto ping_pub = ping_node->create_publisher<std_msgs::msg::Int32>("ping", 10);
+  auto pong_pub = pong_node->create_publisher<std_msgs::msg::Int32>("pong", 10);
 
-  auto ping_tmr_callback = []() {
+  rclcpp::Clock system_clock(RCL_STEADY_TIME);
+  std::atomic_int ping_timer_count {0};
+  std::atomic_int pong_timer_count {0};
 
+  auto ping_tmr_callback = [&ping_timer_count, &system_clock, &ping_pub]() {
+    ping_timer_count++;
+
+    rclcpp::Time start = system_clock.now();
+
+    while (system_clock.now() - start < rclcpp::Duration::from_nanoseconds(100000000));
+
+    auto msg = std::make_unique<std_msgs::msg::Int32>();
+    msg->data = ping_timer_count;
+    ping_pub->publish(std::move(msg));
   };
-  auto pong_tmr_callback = []() {
+  auto pong_tmr_callback = [&pong_timer_count, &system_clock, &pong_pub]() {
+    pong_timer_count++;
+
+    rclcpp::Time start;
+    
+    for (int i = 0; i < 10; i++)
+    {
+      start = system_clock.now();
+      while(system_clock.now() - start < rclcpp::Duration::from_nanoseconds(10000000));
+
+      auto msg = std::make_unique<std_msgs::msg::Int32>();
+      msg->data = pong_timer_count;
+      pong_pub->publish(std::move(msg));
+    }
+
 
   };
   auto ping_sub_callback = []() {
