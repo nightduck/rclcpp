@@ -163,6 +163,14 @@ public:
   add_node(
     rclcpp::node_interfaces::NodeBaseInterface::SharedPtr node_ptr,
     bool notify = true) override;
+  
+  /// Convenience function which takes Node and forwards NodeBaseInterface.
+  /**
+   * \sa rclcpp::StaticSingleThreadedExecutor::add_node
+   */
+  RCLCPP_PUBLIC
+  void
+  add_node(std::shared_ptr<rclcpp::Node> node_ptr, bool notify = true) override;
 
 protected:
   /**
