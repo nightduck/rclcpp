@@ -77,6 +77,10 @@ FixedPrioExecutor::add_callback_group(
   rclcpp::node_interfaces::NodeBaseInterface::SharedPtr node_ptr,
   bool notify)
 {
+  if(group_ptr->type() != rclcpp::CallbackGroupType::MutuallyExclusive) {
+    printf("ERROR: Executor only supports mutually exclusive executors at the moment\n");
+    return;
+  }
   allocate_cbg_resources(group_ptr);
 
   StaticSingleThreadedExecutor::add_callback_group(group_ptr, node_ptr, notify);
@@ -86,7 +90,17 @@ void
 FixedPrioExecutor::add_node(
   rclcpp::node_interfaces::NodeBaseInterface::SharedPtr node_ptr, bool notify)
 {
-  // TODO: Do some memory allocation with each callback
+  bool is_reentrant = false;
+  node_ptr->for_each_callback_group(
+    [&is_reentrant](rclcpp::CallbackGroup::SharedPtr cbg) {
+      is_reentrant = is_reentrant | (cbg->type() != rclcpp::CallbackGroupType::MutuallyExclusive);
+    }
+  );
+  if (is_reentrant) {
+    printf("ERROR: Executor only supports mutually exclusive executors at the moment\n");
+    return;
+  }
+
   node_ptr->for_each_callback_group(std::bind(&FixedPrioExecutor::allocate_cbg_resources, this, _1));
 
   StaticSingleThreadedExecutor::add_node(node_ptr, notify);
