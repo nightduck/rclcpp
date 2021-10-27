@@ -107,6 +107,13 @@ FixedPrioExecutor::add_node(
 }
 
 void
+FixedPrioExecutor::add_node(std::shared_ptr<rclcpp::Node> node_ptr, bool notify)
+{
+  this->add_node(node_ptr->get_node_base_interface(), notify);
+}
+
+
+void
 FixedPrioExecutor::run(rclcpp::experimental::CBG_Work::SharedPtr work)
 {
   while (rclcpp::ok(this->context_) && spinning.load()) {
