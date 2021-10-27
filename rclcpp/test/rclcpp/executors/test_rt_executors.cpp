@@ -279,7 +279,7 @@ TEST_F(TestRTExecutors, priority_checking) {
 }
 
 TEST_F(TestRTExecutors, subscription_spam) {
-  rclcpp::executors::GenericExecutor<> executor(2);
+  rclcpp::executors::FixedPrioExecutor executor(rclcpp::ExecutorOptions(), 2);
 
   ASSERT_GT(executor.get_number_of_threads(), 1u);
 
