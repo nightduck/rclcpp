@@ -227,7 +227,7 @@ FixedPrioExecutor::add_node(
       is_reentrant = is_reentrant | (cbg->type() != rclcpp::CallbackGroupType::MutuallyExclusive);
     }
   );
-  if (is_reentrant) {
+  if (is_reentrant){
     printf("ERROR: Executor only supports mutually exclusive executors at the moment\n");
     throw rclcpp::exceptions::InvalidNodeError();
   }
