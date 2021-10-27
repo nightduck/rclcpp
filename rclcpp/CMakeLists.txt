@@ -56,6 +56,7 @@ set(${PROJECT_NAME}_SRCS
   src/rclcpp/executors/single_threaded_executor.cpp
   src/rclcpp/executors/static_executor_entities_collector.cpp
   src/rclcpp/executors/static_single_threaded_executor.cpp
+  src/rclcpp/executors/fixed_prio_executor.cpp
   src/rclcpp/expand_topic_or_service_name.cpp
   src/rclcpp/future_return_code.cpp
   src/rclcpp/generic_publisher.cpp
