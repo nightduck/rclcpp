@@ -116,9 +116,11 @@ FixedPrioExecutor::add_node(std::shared_ptr<rclcpp::Node> node_ptr, bool notify)
 void
 FixedPrioExecutor::run(rclcpp::experimental::CBG_Work::SharedPtr work)
 {
+  printf("Thread %d started!\n", std::this_thread::get_id());
   while (rclcpp::ok(this->context_) && spinning.load()) {
     // TODO: Make some way for below function to unblock when stopped spinning
     auto exec = work->get_work();
+    printf("Thread %d got work!\n", std::this_thread::get_id());
 
     pthread_setschedprio(work->thread.native_handle(), work->priority);
 
@@ -204,6 +206,7 @@ FixedPrioExecutor::get_subscription_message(
 void
 FixedPrioExecutor::execute_subscription(rclcpp::SubscriptionBase::SharedPtr subscription)
 {
+  printf("Executing subscription\n");
   // Find the group for this handle
   auto group = memory_strategy_->get_group_by_subscription(subscription, weak_groups_to_nodes_);
   assert(group != nullptr);
@@ -225,6 +228,7 @@ FixedPrioExecutor::execute_subscription(rclcpp::SubscriptionBase::SharedPtr subs
 
 void
 FixedPrioExecutor::execute_timer(rclcpp::TimerBase::SharedPtr timer) {
+  printf("Executing subscription\n");
   // Find the group for this handle and see if it can be serviced
   auto group = memory_strategy_->get_group_by_timer(timer, weak_groups_to_nodes_);
   assert(group != nullptr);
