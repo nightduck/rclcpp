@@ -46,16 +46,17 @@ public:
   // TODO: Modify this when changing to rbtree of min-max heaps
   // Put exec in heap, and return true if success
   bool add_work(rclcpp::AnyExecutable& exec, int prio) {
-      {
-        std::lock_guard<std::mutex> lk(mux);
-        heap.emplace(std::pair<int, std::shared_ptr<rclcpp::AnyExecutable>>
-                (prio, std::make_shared<rclcpp::AnyExecutable>(exec)));
+    printf("Giving thread %lu work\n", thread.get_id());
+    {
+      std::lock_guard<std::mutex> lk(mux);
+      heap.emplace(std::pair<int, std::shared_ptr<rclcpp::AnyExecutable>>
+              (prio, std::make_shared<rclcpp::AnyExecutable>(exec)));
 
-        priority = std::max(prio, priority);
-      }
-      
-      cond.notify_one();
-      return true;
+      priority = std::max(prio, priority);
+    }
+    
+    cond.notify_one();
+    return true;
   }
 
   // TODO: Modify this when changing to rbtree of min-max heaps
@@ -66,6 +67,7 @@ public:
     cond.wait(
       lk, [this]{return !heap.empty();}
     );
+    printf("Thread %lu has awaken\n", thread.get_id());
 
     auto ret = heap.top();
     heap.pop();
@@ -122,6 +124,34 @@ public:
   RCLCPP_PUBLIC
   virtual ~FixedPrioExecutor();
   
+  /// Fixed priority executor implementation of spin.
+  /**
+   * This function will block until work comes in, execute it, and keep blocking.
+   * It will only be interrupted by a CTRL-C (managed by the global signal handler).
+   * \throws std::runtime_error when spin() called while already spinning
+   */
+  RCLCPP_PUBLIC
+  void
+  spin() override;
+
+  /// Fixed priority executor implementation of spin some
+  /**
+   * This non-blocking function will execute entities that
+   * were ready when this API was called, until timeout or no
+   * more work available. Entities that got ready while
+   * executing work, won't be taken into account here.
+   *
+   * Example:
+   *   while(condition) {
+   *     spin_some();
+   *     sleep(); // User should have some sync work or
+   *              // sleep to avoid a 100% CPU usage
+   *   }
+   */
+  RCLCPP_PUBLIC
+  void
+  spin_some(std::chrono::nanoseconds max_duration = std::chrono::nanoseconds(0)) override;
+
   /// Fixed priority executor implementation of spin all
   /**
    * This non-blocking function will execute entities until
@@ -184,6 +214,10 @@ protected:
 
   RCLCPP_PUBLIC
   void
+  spin_some_impl(std::chrono::nanoseconds max_duration, bool exhaustive);
+
+  RCLCPP_PUBLIC
+  void
   run(rclcpp::experimental::CBG_Work::SharedPtr work);
 
   RCLCPP_PUBLIC
@@ -192,7 +226,7 @@ protected:
 
   RCLCPP_PUBLIC
   bool
-  get_subscription_message(std::shared_ptr<void> message, SubscriptionBase::SharedPtr subscription);
+  get_subscription_message(std::shared_ptr<void> &message, SubscriptionBase::SharedPtr subscription);
 
   RCLCPP_PUBLIC
   void
@@ -231,6 +265,17 @@ private:
   std::chrono::nanoseconds next_exec_timeout_;
   std::unordered_map<rclcpp::CallbackGroup::SharedPtr, rclcpp::experimental::CBG_Work::SharedPtr>
       cbg_threads;
+
+  std::unordered_map<rclcpp::SubscriptionBase::SharedPtr, rclcpp::CallbackGroup::WeakPtr>
+      sub_to_group_map;
+  std::unordered_map<rclcpp::TimerBase::SharedPtr, rclcpp::CallbackGroup::WeakPtr>
+      tmr_to_group_map;
+  std::unordered_map<rclcpp::ClientBase::SharedPtr, rclcpp::CallbackGroup::WeakPtr>
+      client_to_group_map;
+  std::unordered_map<rclcpp::ServiceBase::SharedPtr, rclcpp::CallbackGroup::WeakPtr>
+      service_to_group_map;
+  std::unordered_map<rclcpp::Waitable::SharedPtr, rclcpp::CallbackGroup::WeakPtr>
+      waitable_to_group_map;
 };
 }  // namespace executors
 }  // namespace rclcpp

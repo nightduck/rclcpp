@@ -210,10 +210,11 @@ protected:
   void
   spin_once_impl(std::chrono::nanoseconds timeout) override;
 
+  StaticExecutorEntitiesCollector::SharedPtr entities_collector_;
+
 private:
   RCLCPP_DISABLE_COPY(StaticSingleThreadedExecutor)
 
-  StaticExecutorEntitiesCollector::SharedPtr entities_collector_;
 };
 
 }  // namespace executors
