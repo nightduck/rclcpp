@@ -139,6 +139,115 @@ FixedPrioExecutor::spin_some(std::chrono::nanoseconds max_duration)
 }
 
 void
+FixedPrioExecutor::spin()
+{
+  if (spinning.exchange(true)) {
+    throw std::runtime_error("spin() called while already spinning");
+  }
+  RCPPUTILS_SCOPE_EXIT(this->spinning.store(false); );
+
+  // Set memory_strategy_ and exec_list_ based on weak_nodes_
+  // Prepare wait_set_ based on memory_strategy_
+  if (!entities_collector_->is_init()) {
+    entities_collector_->init(&wait_set_, memory_strategy_);
+  }
+
+  // Make mapping between executables and callback groups
+  sub_to_group_map.clear();
+  tmr_to_group_map.clear();
+  client_to_group_map.clear();
+  service_to_group_map.clear();
+  waitable_to_group_map.clear();
+  std::vector<rclcpp::CallbackGroup::WeakPtr> groups 
+        = entities_collector_->get_all_callback_groups();
+  std::for_each(groups.begin(), groups.end(),
+    [this](rclcpp::CallbackGroup::WeakPtr group_ptr) {
+      auto group = group_ptr.lock();
+      group->find_timer_ptrs_if(
+        [this, &group_ptr](const rclcpp::TimerBase::SharedPtr & timer) {
+          if (timer) {
+            this->tmr_to_group_map.insert({timer, group_ptr});
+          }
+          return false;
+        });
+      group->find_subscription_ptrs_if(
+        [this, &group_ptr](const rclcpp::SubscriptionBase::SharedPtr & subscription) {
+          if (subscription) {
+            this->sub_to_group_map.insert({subscription, group_ptr});
+          }
+          return false;
+        });
+      group->find_service_ptrs_if(
+        [this, &group_ptr](const rclcpp::ServiceBase::SharedPtr & service) {
+          if (service) {
+            this->service_to_group_map.insert({service, group_ptr});
+          }
+          return false;
+        });
+      group->find_client_ptrs_if(
+        [this, &group_ptr](const rclcpp::ClientBase::SharedPtr & client) {
+          if (client) {
+            this->client_to_group_map.insert({client, group_ptr});
+          }
+          return false;
+        });
+      group->find_waitable_ptrs_if(
+        [this, &group_ptr](const rclcpp::Waitable::SharedPtr & waitable) {
+          if (waitable) {
+            this->waitable_to_group_map.insert({waitable, group_ptr});
+          }
+          return false;
+        });
+    });
+
+  auto clock = rclcpp::Clock();
+
+  while (rclcpp::ok(this->context_) && spinning.load()) {
+    // Refresh wait set and wait for work
+    printf("\nRefreshing wait set\n");
+    entities_collector_->refresh_wait_set();
+    for(int i = 0; i < wait_set_.size_of_subscriptions; i++) {
+      if (wait_set_.subscriptions[i])
+        printf("  sub %d : ready\n", i);
+    }
+    for(int i = 0; i < wait_set_.size_of_timers; i++) {
+      if (wait_set_.timers[i])
+        printf("  tmr %d : ready\n", i);
+    }
+    for(int i = 0; i < wait_set_.size_of_services; i++) {
+      if (wait_set_.services[i])
+        printf("  srv %d : ready\n", i);
+    }
+    for(int i = 0; i < wait_set_.size_of_clients; i++) {
+      if (wait_set_.clients[i])
+        printf("  cli %d : ready\n", i);
+    }
+    for(int i = 0; i < wait_set_.size_of_events; i++) {
+      if (wait_set_.events[i])
+        printf("  evt %d : ready\n", i);
+    }
+    for(int i = 0; i < wait_set_.size_of_guard_conditions; i++) {
+      if (wait_set_.guard_conditions[i])
+        printf("  gcn %d : ready\n", i);
+    }
+    printf("Executing available executables : %lu\n", clock.now().nanoseconds());
+    execute_ready_executables();
+    sleep_for(100ms);
+  }
+}
+
+void
+FixedPrioExecutor::spin_some(std::chrono::nanoseconds max_duration)
+{
+  // In this context a 0 input max_duration means no duration limit
+  if (std::chrono::nanoseconds(0) == max_duration) {
+    max_duration = std::chrono::nanoseconds::max();
+  }
+
+  return this->spin_some_impl(max_duration, false);
+}
+
+void
 FixedPrioExecutor::spin_all(std::chrono::nanoseconds max_duration)
 {
   if (max_duration <= 0ns) {
@@ -308,7 +417,6 @@ bool
 FixedPrioExecutor::execute_ready_executables(bool spin_once)
 {
   bool any_ready_executable = false;
-
   // Put all the ready subscriptions and the messages into the correct thread
   for (size_t i = 0; i < wait_set_.size_of_subscriptions; ++i) {
     if (i < entities_collector_->get_number_of_subscriptions()) {
@@ -483,7 +591,6 @@ FixedPrioExecutor::execute_service(rclcpp::ServiceBase::SharedPtr service)
 {
   // Find the group for this handle and see if it can be serviced
   auto group = service_to_group_map.at(service).lock();
-
   // Otherwise it is safe to set and return the any_exec
   // Fetch all messages awaiting this service
   auto request_header = service->create_request_header();

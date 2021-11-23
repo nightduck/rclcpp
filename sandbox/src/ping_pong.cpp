@@ -27,6 +27,7 @@
 #include <vector>
 
 #include "rclcpp/executor.hpp"
+#include "rclcpp/executors/fixed_prio_executor.hpp"
 #include "rclcpp/rclcpp.hpp"
 
 #include "sandbox/ping_node.hpp"
@@ -51,7 +52,21 @@ int main(int argc, char * argv[])
   rclcpp::init(argc, argv);
 
   // Create Fifo executor
-  rclcpp::executors::FixedPrioExecutor exec;
+  rclcpp::executors::SingleThreadedExecutor exec;
+
+  // auto node = std::make_shared<rclcpp::Node>("test_node");
+  // auto pub = node->create_publisher<std_msgs::msg::Int32>("ping", rclcpp::SensorDataQoS());
+  // auto timer = node->create_wall_timer(1s,
+  //     [&pub]()->void{ 
+  //       std_msgs::msg::Int32 msg;
+  //       msg.data = static_cast<int32_t>(42);
+  //       pub->publish(msg);
+  //     });
+  // auto sub = node->create_subscription<std_msgs::msg::Int32>("ping", rclcpp::SensorDataQoS(),
+  //     [](const std_msgs::msg::Int32::ConstSharedPtr msg) {
+  //       printf("Ping %d!\n", msg->data);
+  //     });
+  // exec.add_node(node);
 
   // Create Ping node instance and add it to high-prio executor.
   auto ping_node = std::make_shared<PingNode>();
@@ -66,6 +81,7 @@ int main(int argc, char * argv[])
     pong_node->get_low_prio_callback_group(), pong_node->get_node_base_interface());
 
   rclcpp::Logger logger = pong_node->get_logger();
+  //rclcpp::Logger logger = node->get_logger();
 
   // Create a thread for each of the two executors ...
   auto exec_thread = std::thread(

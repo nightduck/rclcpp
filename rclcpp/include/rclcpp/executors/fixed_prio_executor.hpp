@@ -157,6 +157,7 @@ public:
     cond.wait(
       lk, [this] {return !heap.empty() || stopped;}
     );
+    printf("Thread %lu has awaken\n", thread.get_id());
 
     if (stopped) {
       return nullptr;
@@ -278,7 +279,6 @@ public:
 
   RCLCPP_PUBLIC
   virtual ~FixedPrioExecutor();
-
   /// Fixed priority executor implementation of spin.
   /**
    * This function will block until work comes in, execute it, and keep blocking.
