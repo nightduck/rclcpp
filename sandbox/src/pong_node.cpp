@@ -65,7 +65,7 @@ void PongNode::high_ping_received(const std_msgs::msg::Int32::ConstSharedPtr msg
   printf("(ping!)");
   burn_cpu_cycles(busyloop);
   high_pong_publisher_->publish(*msg);
-  printf("Pong!");
+  printf("Pong!\n");
 }
 
 void PongNode::low_ping_received(const std_msgs::msg::Int32::ConstSharedPtr msg)
@@ -74,7 +74,7 @@ void PongNode::low_ping_received(const std_msgs::msg::Int32::ConstSharedPtr msg)
   printf("(ping)");
   burn_cpu_cycles(busyloop);
   low_pong_publisher_->publish(*msg);
-  printf("pong.");
+  printf("pong.\n");
 }
 
 void PongNode::burn_cpu_cycles(std::chrono::nanoseconds duration)

@@ -29,7 +29,7 @@ PingNode::PingNode()
   using std::placeholders::_1;
   using std_msgs::msg::Int32;
 
-  this->declare_parameter<double>("ping_period", 1);
+  this->declare_parameter<double>("ping_period", 0.01);
   std::chrono::nanoseconds ping_period = get_nanos_from_secs_parameter(this, "ping_period");
 
   ping_timer_ = this->create_wall_timer(ping_period, std::bind(&PingNode::send_ping, this));
@@ -50,19 +50,19 @@ void PingNode::send_ping()
   high_ping_publisher_->publish(msg);
   printf("Ping!");
   low_ping_publisher_->publish(msg);
-  printf("ping.");
+  printf("ping.\n");
 }
 
 void PingNode::high_pong_received(const std_msgs::msg::Int32::ConstSharedPtr msg)
 {
   rtt_data_[msg->data].high_received_ = now();
-  printf("(pong!)");
+  printf("(pong!)\n");
 }
 
 void PingNode::low_pong_received(const std_msgs::msg::Int32::ConstSharedPtr msg)
 {
   rtt_data_[msg->data].low_received_ = now();
-  printf("(pong)");
+  printf("(pong)\n");
 }
 
 void PingNode::print_statistics(std::chrono::seconds experiment_duration) const
