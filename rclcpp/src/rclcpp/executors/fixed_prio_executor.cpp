@@ -27,18 +27,15 @@ using namespace std::placeholders;  // for _1, _2, _3...
 using namespace std::chrono_literals;
 
 FixedPrioExecutor::FixedPrioExecutor(
+  std::function<int(rclcpp::AnyExecutable)> predicate,
   const rclcpp::ExecutorOptions & options,
-  size_t number_of_threads,
   bool yield_before_execute,
   std::chrono::nanoseconds next_exec_timeout)
 : StaticSingleThreadedExecutor(options),
   yield_before_execute_(yield_before_execute),
   next_exec_timeout_(next_exec_timeout)
 {
-  number_of_threads_ = number_of_threads ? number_of_threads : std::thread::hardware_concurrency();
-  if (number_of_threads_ == 0) {
-    number_of_threads_ = 1;
-  }
+  prio_function = predicate;
 }
 
 FixedPrioExecutor::~FixedPrioExecutor()
@@ -116,33 +113,7 @@ FixedPrioExecutor::spin()
 
   while (rclcpp::ok(this->context_) && spinning.load()) {
     // Refresh wait set and wait for work
-    printf("\nRefreshing wait set\n");
     entities_collector_->refresh_wait_set();
-    for(int i = 0; i < wait_set_.size_of_subscriptions; i++) {
-      if (wait_set_.subscriptions[i])
-        printf("  sub %d : ready\n", i);
-    }
-    for(int i = 0; i < wait_set_.size_of_timers; i++) {
-      if (wait_set_.timers[i])
-        printf("  tmr %d : ready\n", i);
-    }
-    for(int i = 0; i < wait_set_.size_of_services; i++) {
-      if (wait_set_.services[i])
-        printf("  srv %d : ready\n", i);
-    }
-    for(int i = 0; i < wait_set_.size_of_clients; i++) {
-      if (wait_set_.clients[i])
-        printf("  cli %d : ready\n", i);
-    }
-    for(int i = 0; i < wait_set_.size_of_events; i++) {
-      if (wait_set_.events[i])
-        printf("  evt %d : ready\n", i);
-    }
-    for(int i = 0; i < wait_set_.size_of_guard_conditions; i++) {
-      if (wait_set_.guard_conditions[i])
-        printf("  gcn %d : ready\n", i);
-    }
-    printf("Executing available executables : %lu\n", clock.now().nanoseconds());
     execute_ready_executables();
     sleep_for(100ms);
   }
@@ -267,7 +238,6 @@ FixedPrioExecutor::add_node(std::shared_ptr<rclcpp::Node> node_ptr, bool notify)
 void
 FixedPrioExecutor::run(rclcpp::experimental::CBG_Work::SharedPtr work)
 {
-  printf("Thread %d started!\n", std::this_thread::get_id());
   do {
     // TODO: Make some way for below function to unblock when stopped spinning
     auto exec = work->get_work();
@@ -318,7 +288,6 @@ FixedPrioExecutor::run(rclcpp::experimental::CBG_Work::SharedPtr work)
 
     pthread_setschedprio(work->thread.native_handle(), sched_get_priority_max(SCHED_FIFO));
   } while (rclcpp::ok(this->context_) && spinning.load());
-  printf("Thread %d exiting!\n", std::this_thread::get_id());
 }
 
 bool
@@ -459,7 +428,6 @@ FixedPrioExecutor::get_subscription_message(
 void
 FixedPrioExecutor::execute_subscription(rclcpp::SubscriptionBase::SharedPtr subscription)
 {
-  printf("Executing subscription : %s\n", subscription->get_topic_name());
   auto group = sub_to_group_map.at(subscription).lock();
 
   // Fetch all messages awaiting this subscription
@@ -472,14 +440,14 @@ FixedPrioExecutor::execute_subscription(rclcpp::SubscriptionBase::SharedPtr subs
     ae.node_base = memory_strategy_->get_node_by_group(group, weak_groups_to_nodes_);
     ae.data = msg;
     
-    // TODO: Use developer specified functor
-    cbg_threads[group]->add_work(ae, 50);
+    // Get priority and add it to thread
+    int prio = prio_function(ae);
+    cbg_threads[group]->add_work(ae, prio);
   }
 }
 
 void
 FixedPrioExecutor::execute_timer(rclcpp::TimerBase::SharedPtr timer) {
-  printf("Executing timer\n");
   // Find the group for this handle and see if it can be serviced
   auto group = tmr_to_group_map.at(timer).lock();
 
@@ -489,8 +457,9 @@ FixedPrioExecutor::execute_timer(rclcpp::TimerBase::SharedPtr timer) {
   ae.callback_group = group;
   ae.node_base = memory_strategy_->get_node_by_group(group, weak_groups_to_nodes_);
 
-  // TODO: Use developer specified functor
-  cbg_threads[group]->add_work(ae, 50);
+  // Get priority and add it to thread
+  int prio = prio_function(ae);
+  cbg_threads[group]->add_work(ae, prio);
 }
 
 void
@@ -510,8 +479,9 @@ FixedPrioExecutor::execute_service(rclcpp::ServiceBase::SharedPtr service) {
     ae.node_base = memory_strategy_->get_node_by_group(group, weak_groups_to_nodes_);
     ae.data = request;
 
-    // TODO: Use developer specified functor
-    cbg_threads[group]->add_work(ae, 50);
+    // Get priority and add it to thread
+    int prio = prio_function(ae);
+    cbg_threads[group]->add_work(ae, prio);
   }
 }
 
@@ -532,7 +502,8 @@ FixedPrioExecutor::execute_client(rclcpp::ClientBase::SharedPtr client) {
     ae.node_base = memory_strategy_->get_node_by_group(group, weak_groups_to_nodes_);
     ae.data = response;
 
-    // TODO: Use developer specified functor
-    cbg_threads[group]->add_work(ae, 50);
+    // Get priority and add it to thread
+    int prio = prio_function(ae);
+    cbg_threads[group]->add_work(ae, prio);
   }
 }

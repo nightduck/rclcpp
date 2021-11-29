@@ -59,7 +59,7 @@ TEST_F(TestRTExecutors, timer_over_take) {
 
   bool yield_before_execute = true;
 
-  rclcpp::executors::FixedPrioExecutor executor;
+  rclcpp::executors::FixedPrioExecutor executor([](rclcpp::AnyExecutable){return 50;});
 
   ASSERT_GT(executor.get_number_of_threads(), 1u);
 
@@ -103,7 +103,7 @@ TEST_F(TestRTExecutors, timer_over_take) {
 }
 
 TEST_F(TestRTExecutors, subscription_spam) {
-  rclcpp::executors::FixedPrioExecutor executor(rclcpp::ExecutorOptions(), 2);
+  rclcpp::executors::FixedPrioExecutor executor([](rclcpp::AnyExecutable){return 50;});
 
   ASSERT_GT(executor.get_number_of_threads(), 1u);
 
