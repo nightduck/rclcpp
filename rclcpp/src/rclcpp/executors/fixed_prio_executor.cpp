@@ -204,33 +204,7 @@ FixedPrioExecutor::spin()
 
   while (rclcpp::ok(this->context_) && spinning.load()) {
     // Refresh wait set and wait for work
-    printf("\nRefreshing wait set\n");
     entities_collector_->refresh_wait_set();
-    for(int i = 0; i < wait_set_.size_of_subscriptions; i++) {
-      if (wait_set_.subscriptions[i])
-        printf("  sub %d : ready\n", i);
-    }
-    for(int i = 0; i < wait_set_.size_of_timers; i++) {
-      if (wait_set_.timers[i])
-        printf("  tmr %d : ready\n", i);
-    }
-    for(int i = 0; i < wait_set_.size_of_services; i++) {
-      if (wait_set_.services[i])
-        printf("  srv %d : ready\n", i);
-    }
-    for(int i = 0; i < wait_set_.size_of_clients; i++) {
-      if (wait_set_.clients[i])
-        printf("  cli %d : ready\n", i);
-    }
-    for(int i = 0; i < wait_set_.size_of_events; i++) {
-      if (wait_set_.events[i])
-        printf("  evt %d : ready\n", i);
-    }
-    for(int i = 0; i < wait_set_.size_of_guard_conditions; i++) {
-      if (wait_set_.guard_conditions[i])
-        printf("  gcn %d : ready\n", i);
-    }
-    printf("Executing available executables : %lu\n", clock.now().nanoseconds());
     execute_ready_executables();
     sleep_for(100ms);
   }
@@ -562,7 +536,6 @@ FixedPrioExecutor::execute_subscription(rclcpp::SubscriptionBase::SharedPtr subs
     ae.callback_group = group;
     ae.node_base = memory_strategy_->get_node_by_group(group, weak_groups_to_nodes_);
     ae.data = msg;
-
     // Get priority and add it to thread
     int prio = prio_function(ae);
     cbg_threads[group]->add_work(ae, prio);

@@ -51,23 +51,12 @@ int main(int argc, char * argv[])
 {
   rclcpp::init(argc, argv);
 
+  auto pp = [](rclcpp::AnyExecutable exec) -> int {
+    return 50;
+  };
+
   // Create Fifo executor
-  rclcpp::executors::SingleThreadedExecutor exec;
-
-  // auto node = std::make_shared<rclcpp::Node>("test_node");
-  // auto pub = node->create_publisher<std_msgs::msg::Int32>("ping", rclcpp::SensorDataQoS());
-  // auto timer = node->create_wall_timer(1s,
-  //     [&pub]()->void{ 
-  //       std_msgs::msg::Int32 msg;
-  //       msg.data = static_cast<int32_t>(42);
-  //       pub->publish(msg);
-  //     });
-  // auto sub = node->create_subscription<std_msgs::msg::Int32>("ping", rclcpp::SensorDataQoS(),
-  //     [](const std_msgs::msg::Int32::ConstSharedPtr msg) {
-  //       printf("Ping %d!\n", msg->data);
-  //     });
-  // exec.add_node(node);
-
+  rclcpp::executors::FixedPrioExecutor exec(pp);
   // Create Ping node instance and add it to high-prio executor.
   auto ping_node = std::make_shared<PingNode>();
   exec.add_node(ping_node);
@@ -75,10 +64,11 @@ int main(int argc, char * argv[])
   // Create Pong node instance and add it the one of its callback groups
   // to the high-prio executor and the other to the low-prio executor.
   auto pong_node = std::make_shared<PongNode>();
-  exec.add_callback_group(
-    pong_node->get_high_prio_callback_group(), pong_node->get_node_base_interface());
-  exec.add_callback_group(
-    pong_node->get_low_prio_callback_group(), pong_node->get_node_base_interface());
+  exec.add_node(pong_node);
+  // exec.add_callback_group(
+  //   pong_node->get_high_prio_callback_group(), pong_node->get_node_base_interface());
+  // exec.add_callback_group(
+  //   pong_node->get_low_prio_callback_group(), pong_node->get_node_base_interface());
 
   rclcpp::Logger logger = pong_node->get_logger();
   //rclcpp::Logger logger = node->get_logger();
@@ -103,6 +93,9 @@ int main(int argc, char * argv[])
   // ... and stop the experiment.
   rclcpp::shutdown();
   exec_thread.join();
+
+  exec.remove_node(ping_node);
+  exec.remove_node(pong_node);
 
   ping_node->print_statistics(EXPERIMENT_DURATION);
 

@@ -157,7 +157,6 @@ public:
     cond.wait(
       lk, [this] {return !heap.empty() || stopped;}
     );
-    printf("Thread %lu has awaken\n", thread.get_id());
 
     if (stopped) {
       return nullptr;
