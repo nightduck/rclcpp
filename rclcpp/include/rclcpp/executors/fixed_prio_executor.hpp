@@ -46,7 +46,6 @@ public:
   // TODO: Modify this when changing to rbtree of min-max heaps
   // Put exec in heap, and return true if success
   bool add_work(rclcpp::AnyExecutable& exec, int prio) {
-    printf("Giving thread %lu work\n", thread.get_id());
     {
       std::lock_guard<std::mutex> lk(mux);
       heap.emplace(std::pair<int, std::shared_ptr<rclcpp::AnyExecutable>>
@@ -67,7 +66,6 @@ public:
     cond.wait(
       lk, [this]{return !heap.empty();}
     );
-    printf("Thread %lu has awaken\n", thread.get_id());
 
     auto ret = heap.top();
     heap.pop();
@@ -116,8 +114,8 @@ public:
    */
   RCLCPP_PUBLIC
   FixedPrioExecutor(
+    std::function<int(rclcpp::AnyExecutable)> predicate,
     const rclcpp::ExecutorOptions & options = rclcpp::ExecutorOptions(),
-    size_t number_of_threads = 0,
     bool yield_before_execute = false,
     std::chrono::nanoseconds timeout = std::chrono::nanoseconds(-1));
 
@@ -276,6 +274,8 @@ private:
       service_to_group_map;
   std::unordered_map<rclcpp::Waitable::SharedPtr, rclcpp::CallbackGroup::WeakPtr>
       waitable_to_group_map;
+
+  std::function<int(rclcpp::AnyExecutable)> prio_function;
 };
 }  // namespace executors
 }  // namespace rclcpp
