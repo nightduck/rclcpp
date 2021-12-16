@@ -29,7 +29,7 @@ PingNode::PingNode()
   using std::placeholders::_1;
   using std_msgs::msg::Int32;
 
-  this->declare_parameter<double>("ping_period", 0.01);
+  this->declare_parameter<double>("ping_period", 0.1);
   std::chrono::nanoseconds ping_period = get_nanos_from_secs_parameter(this, "ping_period");
 
   ping_timer_ = this->create_wall_timer(ping_period, std::bind(&PingNode::send_ping, this));
