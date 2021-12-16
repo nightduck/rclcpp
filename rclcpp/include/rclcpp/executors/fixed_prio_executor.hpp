@@ -193,9 +193,6 @@ public:
     //   assert(h != tmr_dict.end());  // If subscription has message in heap, then it should have
     //                                 // at least an empty deque in the sub dictionary
 
-    //   if (!h->second->empty()) {
-    //     // If deque isn't empty, put it back in heap. It won't necessarily go back to the top.
-    //     // This means all max prio executables get to run in round-robin
     //     heap.insert(h->second);
     //   }
     // } else {
