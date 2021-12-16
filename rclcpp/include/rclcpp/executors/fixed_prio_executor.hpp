@@ -54,7 +54,7 @@ public:
   RCLCPP_SMART_PTR_DEFINITIONS(CBG_Work)
 
   CBG_Work()
-  : priority(sched_get_priority_max(SCHED_FIFO))
+  : priority(sched_get_priority_max(SCHED_FIFO)), heap(), sub_dict(), tmr_dict()
   {}
 
   // TODO: Modify this when changing to rbtree of min-max heaps
@@ -72,6 +72,8 @@ public:
           auto ret = sub_dict.emplace(exec.subscription,
             std::make_shared<std::deque<std::pair<int,std::shared_ptr<rclcpp::AnyExecutable>>>>());
           q = ret.first->second;
+        } else {
+          q = h->second;
         }
       } else if (exec.timer != NULL) {
         // Check if entry exist in dict, if not, create an entry for it
@@ -81,6 +83,8 @@ public:
           auto ret = tmr_dict.emplace(exec.timer,
             std::make_shared<std::deque<std::pair<int,std::shared_ptr<rclcpp::AnyExecutable>>>>());
           q = ret.first->second;
+        } else {
+          q = h->second;
         }
       } else {
         assert(false);
@@ -118,38 +122,40 @@ public:
     priority = heap.begin()->get()->front().first;
     running = heap.begin()->get()->front().second;
 
-    // Remove running from the heap
+    // Remove running from the it's queue
     heap.begin()->get()->pop_front();
+
+    // Remove queue from heap
+    auto dq = *heap.begin();
     heap.erase(heap.begin());
 
-    // Update queues
-    if (running->subscription != NULL) {
-      auto h = sub_dict.find(running->subscription);
-      assert(h != sub_dict.end());  // If subscription has message in heap, then it should have at least an empty deque in the sub dictionary
-
-      if (h->second->empty()) {
-        // If deque is empty, remove it, to indicate there's no pending or running work on this subscription
-        sub_dict.erase(h->first);
-      } else {
-        // If deque isn't empty, put it back in heap. It won't necessarily go back to the top.
-        // This means all max prio executables get to run in round-robin
-        heap.insert(h->second);
-      }
-    } else if (running->timer != NULL) {
-      auto h = tmr_dict.find(running->timer);
-      assert(h != tmr_dict.end());  // If subscription has message in heap, then it should have at least an empty deque in the sub dictionary
-
-      if (h->second->empty()) {
-        // If deque is empty, remove it, to indicate there's no pending or running work on this subscription
-        tmr_dict.erase(h->first);
-      } else {
-        // If deque isn't empty, put it back in heap. It won't necessarily go back to the top.
-        // This means all max prio executables get to run in round-robin
-        heap.insert(h->second);
-      }
-    } else {
-      assert(false);
+    // And if it's not empty, put it back in (this ensures RR between same-priority execs)
+    if (!dq->empty()) {
+      heap.insert(dq);
     }
+
+    // // Update queues
+    // if (running->subscription != NULL) {
+    //   auto h = sub_dict.find(running->subscription);
+    //   assert(h != sub_dict.end());  // If subscription has message in heap, then it should have at least an empty deque in the sub dictionary
+
+    //   if (!h->second->empty()) {
+    //     // If deque isn't empty, put it back in heap. It won't necessarily go back to the top.
+    //     // This means all max prio executables get to run in round-robin
+    //     heap.insert(h->second);
+    //   }
+    // } else if (running->timer != NULL) {
+    //   auto h = tmr_dict.find(running->timer);
+    //   assert(h != tmr_dict.end());  // If subscription has message in heap, then it should have at least an empty deque in the sub dictionary
+
+    //   if (!h->second->empty()) {
+    //     // If deque isn't empty, put it back in heap. It won't necessarily go back to the top.
+    //     // This means all max prio executables get to run in round-robin
+    //     heap.insert(h->second);
+    //   }
+    // } else {
+    //   assert(false);
+    // }
 
     lk.unlock();
 
