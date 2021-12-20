@@ -17,7 +17,14 @@ target_include_directories(ping_pong PUBLIC
 ament_target_dependencies(ping_pong rclcpp std_msgs)
 target_compile_features(ping_pong PUBLIC c_std_99 cxx_std_17)  # Require C99 and C++17
 
-install(TARGETS ping_pong
+add_executable(empty_callbacks src/empty_callbacks.cpp)
+target_include_directories(empty_callbacks PUBLIC
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+  $<INSTALL_INTERFACE:include>)
+ament_target_dependencies(empty_callbacks rclcpp std_msgs)
+target_compile_features(empty_callbacks PUBLIC c_std_99 cxx_std_17)  # Require C99 and C++17
+
+install(TARGETS ping_pong empty_callbacks
   DESTINATION lib/${PROJECT_NAME})
 
 if(BUILD_TESTING)
