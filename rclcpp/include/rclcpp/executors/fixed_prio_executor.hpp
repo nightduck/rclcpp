@@ -57,8 +57,15 @@ public:
   : priority(sched_get_priority_max(SCHED_FIFO)), heap(), sub_dict(), tmr_dict()
   {}
 
+  ~CBG_Work() {
+    thread.join();
+    sub_dict.clear();
+    tmr_dict.clear();
+    heap.clear();
+  }
+
   // TODO: Modify this when changing to rbtree of min-max heaps
-  // Put exec in heap, and return true if success
+  // Put exec in heap, and return true if success (log n, wc n on number of exec types in CBG)
   bool add_work(rclcpp::AnyExecutable& exec, int prio) {
     {
       std::lock_guard<std::mutex> lk(mux);
@@ -90,7 +97,7 @@ public:
         assert(false);
       }
 
-      // If an entry for this exists (or was just created above), add this message to it
+      // If an entry for this exists (or was just created above), add this message to it (1)
       q->push_back({prio, std::make_shared<rclcpp::AnyExecutable>(exec)});
 
       // NOTE/TODO: Priority inheritance for subscriptions? If they have to be executed in
@@ -98,7 +105,7 @@ public:
       // should inherit priority of previous messages, maybe iterate through deque with a max
       // operation?
 
-      // If the queue was empty before now, put it in the heap
+      // If the queue was empty before now, put it in the heap (log n, wc n)
       if (q->size() == 1)
         heap.insert(q);
 
@@ -112,6 +119,7 @@ public:
   // TODO: Modify this when changing to rbtree of min-max heaps
   // Replace running with most urgent task in heap. Update priority.
   // If no work is available, sleep on conditional lock until there is
+  // (log n, wc n on number of exec types in CBG)
   std::shared_ptr<rclcpp::AnyExecutable> get_work() {
     std::unique_lock<std::mutex> lk(mux);
 
@@ -122,14 +130,15 @@ public:
     priority = heap.begin()->get()->front().first;
     running = heap.begin()->get()->front().second;
 
-    // Remove running from the it's queue
+    // Remove running from the highest priority queue (1)
     heap.begin()->get()->pop_front();
 
-    // Remove queue from heap
+    // Remove queue from heap (log n, wc n)
     auto dq = *heap.begin();
     heap.erase(heap.begin());
 
     // And if it's not empty, put it back in (this ensures RR between same-priority execs)
+    // (log n, wc n)
     if (!dq->empty()) {
       heap.insert(dq);
     }
