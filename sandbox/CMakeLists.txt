@@ -24,7 +24,14 @@ target_include_directories(empty_callbacks PUBLIC
 ament_target_dependencies(empty_callbacks rclcpp std_msgs)
 target_compile_features(empty_callbacks PUBLIC c_std_99 cxx_std_17)  # Require C99 and C++17
 
-install(TARGETS ping_pong empty_callbacks
+add_executable(shared_nodes src/shared_nodes.cpp)
+target_include_directories(shared_nodes PUBLIC
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+  $<INSTALL_INTERFACE:include>)
+ament_target_dependencies(shared_nodes rclcpp std_msgs)
+target_compile_features(shared_nodes PUBLIC c_std_99 cxx_std_17)  # Require C99 and C++17
+
+install(TARGETS ping_pong empty_callbacks shared_nodes
   DESTINATION lib/${PROJECT_NAME})
 
 if(BUILD_TESTING)
