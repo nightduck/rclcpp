@@ -3,67 +3,118 @@
 #include <linux/sched.h>
 
 BEGIN {
-	@timer_end = (uint64)0;
-	@hipong_end = (uint64)0;
-	@lopong_end = (uint64)0;
-	@hiping_end = (uint64)0;
-	@loping_end = (uint64)0;
-	@timer_start = (uint64)0;
 }
 
 uprobe:/proc/10373/root/workspaces/rclcpp/build/sandbox/ping_pong:"sandbox::PingNode::send_ping()" {
+	// TODO: Stats collection and reseting variables
 
-	if (@timer_start != 0) {
-		@overhead_avg[comm] = avg(@cputime[tid] - @cputime_in_timer);
+	$last_state = @state[tid];
+	if ($last_state != 0) {
+		@time_in_state[tid, $last_state] += (nsecs - @last_state_change[tid]);
 	}
+	@state[tid] = 1;
+	@last_state_change[tid] = nsecs;
 
-	@cputime[tid] = (uint64)0;	// Reset (or initialize cpu time count)
+	/////////////////
+
 	@timer_start = nsecs;
 
 	//printf("enter timer %lu on %d\n", nsecs, tid);
 }
 uretprobe:/proc/10373/root/workspaces/rclcpp/build/sandbox/ping_pong:"sandbox::PingNode::send_ping()" {
-	@cputime_in_timer = @cputime[tid];
+	$last_state = @state[tid];
+	@time_in_state[tid, $last_state] += (nsecs - @last_state_change[tid]);
+	@state[tid] = -1;
+	@last_state_change[tid] = nsecs;
+
 	@timer_avg[tid, comm] = avg(nsecs - @timer_start);
 
 	//printf("exit timer %lu on %d\n", nsecs, tid);
 }
 uprobe:/proc/10373/root/workspaces/rclcpp/build/sandbox/ping_pong:"sandbox::PingNode::high_pong_received(std::shared_ptr<std_msgs::msg::Int32_<std::allocator<void> > const>)" {
+	$last_state = @state[tid];
+	if ($last_state != 0) {
+		@time_in_state[tid, $last_state] += (nsecs - @last_state_change[tid]);
+	}
+	@state[tid] = 2;
+	@last_state_change[tid] = nsecs;
+	
 	@hipong_start = nsecs;
 
 	//printf("enter hipong %lu on %d\n", nsecs, tid);
 }
 uretprobe:/proc/10373/root/workspaces/rclcpp/build/sandbox/ping_pong:"sandbox::PingNode::high_pong_received(std::shared_ptr<std_msgs::msg::Int32_<std::allocator<void> > const>)" {
+	$last_state = @state[tid];
+	@time_in_state[tid, $last_state] += (nsecs - @last_state_change[tid]);
+	@state[tid] = -1;
+	@last_state_change[tid] = nsecs;
+
 	@hipong_avg[tid, comm] = avg(nsecs - @hipong_start);
 
 	//printf("exit hipong %lu on %d\n", nsecs, tid);
 }
 uprobe:/proc/10373/root/workspaces/rclcpp/build/sandbox/ping_pong:"sandbox::PingNode::low_pong_received(std::shared_ptr<std_msgs::msg::Int32_<std::allocator<void> > const>)" {
+	$last_state = @state[tid];
+	if ($last_state != 0) {
+		@time_in_state[tid, $last_state] += (nsecs - @last_state_change[tid]);
+	}
+	@state[tid] = 3;
+	@last_state_change[tid] = nsecs;
+
 	@lopong_start = nsecs;
 
 	//printf("enter lopong %lu on %d\n", nsecs, tid);
 }
 uretprobe:/proc/10373/root/workspaces/rclcpp/build/sandbox/ping_pong:"sandbox::PingNode::low_pong_received(std::shared_ptr<std_msgs::msg::Int32_<std::allocator<void> > const>)" {
+	$last_state = @state[tid];
+	@time_in_state[tid, $last_state] += (nsecs - @last_state_change[tid]);
+	@state[tid] = -1;
+	@last_state_change[tid] = nsecs;
+
 	@lopong_avg[tid, comm] = avg(nsecs - @lopong_start);
 
 	//printf("exit lopong %lu on %d\n", nsecs, tid);
 }
 uprobe:/proc/10373/root/workspaces/rclcpp/build/sandbox/ping_pong:"sandbox::PongNode::high_ping_received(std::shared_ptr<std_msgs::msg::Int32_<std::allocator<void> > const>)" {
+	$last_state = @state[tid];
+	if ($last_state != 0) {
+		@time_in_state[tid, $last_state] += (nsecs - @last_state_change[tid]);
+	}
+	@state[tid] = 4;
+	@last_state_change[tid] = nsecs;
+
 	@hiping_start = nsecs;
 
 	//printf("enter hiping %lu on %d\n", nsecs, tid);
 }
 uretprobe:/proc/10373/root/workspaces/rclcpp/build/sandbox/ping_pong:"sandbox::PongNode::high_ping_received(std::shared_ptr<std_msgs::msg::Int32_<std::allocator<void> > const>)" {
+	$last_state = @state[tid];
+	@time_in_state[tid, $last_state] += (nsecs - @last_state_change[tid]);
+	@state[tid] = -1;
+	@last_state_change[tid] = nsecs;
+
 	@hiping_avg[tid, comm] = avg(nsecs - @hiping_start);
 
 	//printf("exit hiping %lu on %d\n", nsecs, tid);
 }
 uprobe:/proc/10373/root/workspaces/rclcpp/build/sandbox/ping_pong:"sandbox::PongNode::low_ping_received(std::shared_ptr<std_msgs::msg::Int32_<std::allocator<void> > const>)" {
+	$last_state = @state[tid];
+	if ($last_state != 0) {
+		@time_in_state[tid, $last_state] += (nsecs - @last_state_change[tid]);
+	}
+	@state[tid] = 5;
+	@last_state_change[tid] = nsecs;
+
 	@loping_start = nsecs;
 
 	//printf("enter loping %lu on %d\n", nsecs, tid);
 }
 uretprobe:/proc/10373/root/workspaces/rclcpp/build/sandbox/ping_pong:"sandbox::PongNode::low_ping_received(std::shared_ptr<std_msgs::msg::Int32_<std::allocator<void> > const>)" {
+	$last_state = @state[tid];
+	@time_in_state[tid, $last_state] += (nsecs - @last_state_change[tid]);
+	@state[tid] = -1;
+	@last_state_change[tid] = nsecs;
+	
 	@loping_avg[tid, comm] = avg(nsecs - @loping_start);
 
 	//printf("exit loping %lu on %d\n", nsecs, tid);
@@ -71,26 +122,33 @@ uretprobe:/proc/10373/root/workspaces/rclcpp/build/sandbox/ping_pong:"sandbox::P
 
 kprobe:finish_task_switch
 {
+	if ($1 == 0 || pid == $1) {
+		@start[tid] = nsecs;
+
+		@last_state_change[tid] = nsecs;
+	}
+
 	// record previous thread sleep time
 	$prev = (struct task_struct *)arg0;
 
-	$current_thread = tid;
-
-
-	if ($1 == 0 || $prev->tgid == $1) {
-		@start[tid] = nsecs;
-	}
-
 	// get the previous thread's start time
 	$last = @start[$prev->pid];
-	if ($last != 0) {
-		@cputime[tid] += (nsecs - $last);
-		@cputime[comm] += (nsecs - $last);
+	if ($1 == 0 || $prev->tgid == $1) {
+		$last_state = @state[tid];
+		@time_in_state[tid, $last_state] += (nsecs - @last_state_change[tid]);
+		@cputime[tid] = sum(nsecs - $last);
 		delete(@start[$prev->pid]);
 	}
 }
 
 END
 {
+	//clear(@state);
 	clear(@cputime);
+	clear(@last_state_change);
+	delete(@timer_start);
+	delete(@hipong_start);
+	delete(@hiping_start);
+	delete(@lopong_start);
+	delete(@loping_start);
 }
