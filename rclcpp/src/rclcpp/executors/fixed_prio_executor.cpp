@@ -206,7 +206,6 @@ FixedPrioExecutor::spin()
     // Refresh wait set and wait for work
     entities_collector_->refresh_wait_set();
     execute_ready_executables();
-    sleep_for(100ms);
   }
 }
 
