@@ -120,7 +120,7 @@ int main(int argc, char* argv[]) {
         // Creating the threads immediately started them.
         // Therefore, get start CPU time of each thread now.
         auto thread_begin = get_thread_time(exec_thread);
-        const std::chrono::seconds EXPERIMENT_DURATION = 10s;
+        const std::chrono::seconds EXPERIMENT_DURATION = 60s;
         RCLCPP_INFO_STREAM(
             logger, "Running new executor from now on for " << EXPERIMENT_DURATION.count() << " seconds ...");
         std::this_thread::sleep_for(EXPERIMENT_DURATION);
@@ -153,7 +153,7 @@ int main(int argc, char* argv[]) {
         // Creating the threads immediately started them.
         // Therefore, get start CPU time of each thread now.
         auto thread_begin = get_thread_time(exec_thread);
-        const std::chrono::seconds EXPERIMENT_DURATION = 10s;
+        const std::chrono::seconds EXPERIMENT_DURATION = 60s;
         RCLCPP_INFO_STREAM(
             logger, "Running default executor from now on for " << EXPERIMENT_DURATION.count() << " seconds ...");
         std::this_thread::sleep_for(EXPERIMENT_DURATION);
