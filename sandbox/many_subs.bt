@@ -1,0 +1,128 @@
+#!/snap/bin/bpftrace
+
+#include <linux/sched.h>
+
+BEGIN {
+	@OVERHEAD = 0;
+	@TIMER = 1;
+	@SUB = 2;
+	@init = 0;
+}
+
+uprobe:/proc/8196/root/workspaces/rclcpp/build/sandbox/many_subs_per_node:"_ZN6rclcpp12GenericTimerIZ4mainEUlvE0_LPv0EE16execute_callbackEv" {
+	// Stats collection and reseting variables
+	if (@init != 0) {
+		@time_per_state_avg[@OVERHEAD] = avg(@time_in_state[@OVERHEAD]);
+		@time_per_state_avg[@TIMER]    = avg(@time_in_state[@TIMER]);
+		@time_per_state_avg[@SUB]   = avg(@time_in_state[@SUB]);
+
+		@time_per_state_min[@OVERHEAD] = min(@time_in_state[@OVERHEAD]);
+		@time_per_state_min[@TIMER]    = min(@time_in_state[@TIMER]);
+		@time_per_state_min[@SUB]   = min(@time_in_state[@SUB]);
+
+		@time_per_state_max[@OVERHEAD] = max(@time_in_state[@OVERHEAD]);
+		@time_per_state_max[@TIMER]    = max(@time_in_state[@TIMER]);
+		@time_per_state_max[@SUB]   = max(@time_in_state[@SUB]);
+
+		@time_per_state_hist[@OVERHEAD] = lhist(@time_in_state[@OVERHEAD], 0, 1500000000,	5000000);
+		// @time_per_state_hist[@TIMER]    = lhist(@time_in_state[@TIMER],    0, 15000000,	50000);
+		// @time_per_state_hist[@SUB]   = lhist(@time_in_state[@SUB],   0, 15000000, 50000);
+
+		// @end_to_end_avg  = avg(@hipong_end - @timer_start);
+		// @end_to_end_min  = min(@hipong_end - @timer_start);
+		// @end_to_end_max  = max(@hipong_end - @timer_start);
+		// @end_to_end_hist = lhist(@hipong_end - @timer_start,   0, 25000000,	50000);
+
+	} else {
+		@init = 1
+	}
+
+	@timer_count = count();
+	
+	@time_in_state[@OVERHEAD] = (uint64)0;
+	@time_in_state[@TIMER]    = (uint64)0;
+	@time_in_state[@SUB]   = (uint64)0;
+	
+
+	$last_state = @state[tid];
+	if ($last_state != -1) {
+		@time_in_state_by_thread[tid, $last_state] += (nsecs - @last_state_change[tid]);
+		@time_in_state[$last_state] += (nsecs - @last_state_change[tid]);
+	}
+	@state[tid] = @TIMER;
+	@last_state_change[tid] = nsecs;	
+
+	@timer_start = nsecs;
+
+	//printf("enter timer %lu on %d\n", nsecs, tid);
+}
+//uretprobe:/proc/8196/root/workspaces/rclcpp/build/sandbox/many_subs_per_node:"rclcpp::GenericTimer<main::{lambda()#2}, (void*)0>::execute_callback()" {
+uretprobe:/proc/8196/root/workspaces/rclcpp/build/sandbox/many_subs_per_node:"_ZN6rclcpp12GenericTimerIZ4mainEUlvE0_LPv0EE16execute_callbackEv" {
+	$last_state = @state[tid];
+	@time_in_state_by_thread[tid, $last_state] += (nsecs - @last_state_change[tid]);
+	@time_in_state[$last_state] += (nsecs - @last_state_change[tid]);
+	@state[tid] = @OVERHEAD;
+	@last_state_change[tid] = nsecs;
+
+
+	@timer_avg[tid, comm] = avg(nsecs - @timer_start);
+
+	//printf("exit timer %lu on %d\n", nsecs, tid);
+}
+uprobe:/proc/8196/root/workspaces/rclcpp/build/sandbox/many_subs_per_node:"ExplosionNode::sub_callback(std::shared_ptr<std_msgs::msg::Int32_<std::allocator<void> > const>, int, int, int)" {
+	$last_state = @state[tid];
+	if ($last_state != -1) {
+		@time_in_state_by_thread[tid, $last_state] += (nsecs - @last_state_change[tid]);
+		@time_in_state[$last_state] += (nsecs - @last_state_change[tid]);
+	}
+	@state[tid] = @SUB;
+	@last_state_change[tid] = nsecs;
+
+	@sub_start[tid] = nsecs;
+
+	//printf("enter hiping %lu on %d\n", nsecs, tid);
+}
+uretprobe:/proc/8196/root/workspaces/rclcpp/build/sandbox/many_subs_per_node:"ExplosionNode::sub_callback(std::shared_ptr<std_msgs::msg::Int32_<std::allocator<void> > const>, int, int, int)" {
+	$last_state = @state[tid];
+	@time_in_state_by_thread[tid, $last_state] += (nsecs - @last_state_change[tid]);
+	@time_in_state[$last_state] += (nsecs - @last_state_change[tid]);
+	@state[tid] = @OVERHEAD;
+	@last_state_change[tid] = nsecs;
+
+	@sub_avg[tid, comm] = avg(nsecs - @sub_start[tid]);
+
+	//printf("exit hiping %lu on %d\n", nsecs, tid);
+}
+
+kprobe:finish_task_switch
+{
+	if ($1 == 0 || pid == $1) {
+		@start[tid] = nsecs;
+
+		@last_state_change[tid] = nsecs;
+	}
+
+	// record previous thread sleep time
+	$prev = (struct task_struct *)arg0;
+
+	// get the previous thread's start time
+	$last = @start[$prev->pid];
+	if ($1 == 0 || $prev->tgid == $1) {
+		$last_state = @state[$prev->pid];
+		@time_in_state_by_thread[$prev->pid, $last_state] += (nsecs - @last_state_change[tid]);
+		@time_in_state[$last_state] += (nsecs - @last_state_change[$prev->pid]);
+		@cputime[$prev->pid] = sum(nsecs - $last);
+		delete(@start[$prev->pid]);
+	}
+}
+
+END
+{
+	//clear(@state);
+
+	clear(@cputime);
+	clear(@last_state_change);
+	delete(@timer_start);
+	delete(@init);
+	clear(@sub_start);
+}

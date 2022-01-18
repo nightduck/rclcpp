@@ -31,7 +31,7 @@ target_include_directories(shared_nodes PUBLIC
 ament_target_dependencies(shared_nodes rclcpp std_msgs)
 target_compile_features(shared_nodes PUBLIC c_std_99 cxx_std_17)  # Require C99 and C++17
 
-add_executable(many_subs_per_node src/many_subs_per_node.cpp)
+add_executable(many_subs_per_node src/many_subs_per_node.cpp src/explosion_node.cpp)
 target_include_directories(many_subs_per_node PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
   $<INSTALL_INTERFACE:include>)
