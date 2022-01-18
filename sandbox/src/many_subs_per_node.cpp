@@ -4,19 +4,18 @@
 
 #include <chrono>
 #include <condition_variable>
-#include <functional>
 #include <iostream>
 #include <memory>
 #include <mutex>
 #include <string>
 #include <thread>
-#include <vector>
 #include <atomic>
 
 #include "rclcpp/rclcpp.hpp"
 #include "std_msgs/msg/int32.hpp"
 #include "rclcpp/executor.hpp"
 #include "rclcpp/executors/fixed_prio_executor.hpp"
+#include "explosion_node.hpp"
 
 #include "sandbox/utilities.hpp"
 
@@ -28,96 +27,61 @@ using namespace std::chrono_literals;
 using sandbox::configure_thread;
 using sandbox::get_thread_time;
 
-using std::placeholders::_1;
-
-class ExplosionNode : rclcpp::Node {
-public:
-
-    std::string get_topic_name(int i) {
-        char buffer[16];
-        sprintf(buffer, "topic_%d", i);
-        return std::string(buffer);
-    }
-
-    void sub_callback(std_msgs::msg::Int32::ConstSharedPtr msg, int start, int end){
-        std_msgs::msg::Int32 msg_out;
-        msg_out.data = msg->data ^ this->now().nanoseconds();
-        for(int j = start; j < end; j++) {
-            pubs[j]->publish(msg_out);
-        }
-    }
-    /**
-     * @brief Construct a new Explosion Node object
-     * 
-     * @param name Name of node
-     * @param start Beginning of topic range that this node subscribes to (inclusive)
-     * @param end End of topic range that this node subscribes to (not inclusive)
-     * @param factor Number of topics each sub in this node publishes to
-     */
-    ExplosionNode(std::string name, int start, int end, int factor) : rclcpp::Node(name) {
-        // TODO: Redefine factor to be like kernel-size and step in conv layer. So subs can publish to the same topics, with some overlap
-        assert(end > start);
-        subs.reserve(end - start);
-        pubs.reserve((end - start) * factor);
-        int range = end - start;
-        
-        // Create all publishers, starting at index "end", and "factor" times more than subs
-        for(int i = end; i < factor * range + end; i++) {
-            pubs.push_back(this->create_publisher<std_msgs::msg::Int32>(get_topic_name(i), 10));
-        }
-
-        // Create all subscribers, starting at "start" and ending before "end", each publishing to
-        // "factor" topics
-        for (int i = start; i < end; i++) {
-            int pub_start = end + (i - start) * factor;
-
-            subs.push_back(
-                this->create_subscription<std_msgs::msg::Int32>(get_topic_name(i), 10,
-                    [this, pub_start, factor](std_msgs::msg::Int32::ConstSharedPtr msg) {
-                        this->sub_callback(msg, pub_start, pub_start * factor);
-                    })
-                );
-        }
-    }
-
-    std::vector<std::shared_ptr<rclcpp::Subscription<std_msgs::msg::Int32>>> subs;
-    std::vector<std::shared_ptr<rclcpp::Publisher<std_msgs::msg::Int32>>> pubs;
-};
-
 int main(int argc, char* argv[]) {
     rclcpp::init(argc, argv);
 
     auto pp = [](rclcpp::AnyExecutable exec) -> int {
         int priority = 50;
-        if (exec.subscription != NULL) {
-            priority = 1e9 / exec.subscription->get_actual_qos().deadline().nanoseconds();
-        } else if (exec.timer != NULL) {
-            int64_t period = 0;
-            rcl_timer_get_period(exec.timer->get_timer_handle().get(), &period);
-            priority = 1e9 / period;
-        }
+        // if (exec.subscription != NULL) {
+        //     priority = 1e9 / exec.subscription->get_actual_qos().deadline().nanoseconds();
+        // } else if (exec.timer != NULL) {
+        //     int64_t period = 0;
+        //     rcl_timer_get_period(exec.timer->get_timer_handle().get(), &period);
+        //     priority = 1e9 / period;
+        // }
         priority = std::min(std::max(priority,1),99);
         return priority;
     };
 
     auto tmr_node = std::make_shared<rclcpp::Node>("tmr");
+
+    auto pub1 = tmr_node->create_publisher<std_msgs::msg::Int32>("topic_2", 10);
+    auto pub2 = tmr_node->create_publisher<std_msgs::msg::Int32>("topic_3", 10);
+    auto tmr1 = tmr_node->create_wall_timer(1000ms, [&](void){
+        std_msgs::msg::Int32 msg;
+        msg.data = tmr_node->now().nanoseconds();
+        pub1->publish(msg);
+        msg.data = tmr_node->now().nanoseconds();
+        pub2->publish(msg);
+    });
     
     rclcpp::Logger logger = tmr_node->get_logger();
 
     auto qos = rclcpp::QoS(50);
     qos.deadline(rclcpp::Duration(50ms));
 
-    // TODO: Create a bunch of explosion nodes here
+    // Create a bunch of explosion nodes
+    std::list<std::shared_ptr<ExplosionNode>> nodes;
+    for (int i = 2; i < 0x800; i = i << 1) {
+        char buffer[16];
+        sprintf(buffer, "node_%d", i);
+        nodes.push_back(
+            std::make_shared<ExplosionNode>(std::string(buffer), i, i << 1, 2)
+        );
+    }
 
+    const std::chrono::seconds EXPERIMENT_DURATION = 20s;
 
-    const std::chrono::seconds EXPERIMENT_DURATION = 10s;
+    std::this_thread::sleep_for(3s);
     
     if (argc >= 2 && std::string("fp").compare(argv[1]) == 0) {
         rclcpp::executors::FixedPrioExecutor exec(pp);
 
         exec.add_node(tmr_node);
 
-        // TODO: Add all explosion nodes
+        for(std::shared_ptr<ExplosionNode> n : nodes) {
+            exec.add_node(n);
+        }
 
         // Create a thread for each of the two executors ...
         auto exec_thread = std::thread(
@@ -136,7 +100,9 @@ int main(int argc, char* argv[]) {
         rclcpp::shutdown();
         exec_thread.join();
         exec.remove_node(tmr_node);
-        // TODO: Remove all explosion nodes
+        for(std::shared_ptr<ExplosionNode> n : nodes) {
+            exec.remove_node(n);
+        }
     } else if (argc >= 2 && std::string("st").compare(argv[1]) == 0) {
         rclcpp::executors::SingleThreadedExecutor exec;
 
@@ -144,7 +110,9 @@ int main(int argc, char* argv[]) {
 
         exec.add_node(tmr_node);
 
-        // TODO: Add all explosion nodes
+        for(std::shared_ptr<ExplosionNode> n : nodes) {
+            exec.add_node(n);
+        }
 
         // Create a thread for each of the two executors ...
         auto exec_thread = std::thread(
@@ -163,7 +131,9 @@ int main(int argc, char* argv[]) {
         rclcpp::shutdown();
         exec_thread.join();
         exec.remove_node(tmr_node);
-        // TODO: Remove all explosion nodes
+        for(std::shared_ptr<ExplosionNode> n : nodes) {
+            exec.remove_node(n);
+        }
     } else if (argc >= 2 && std::string("sst").compare(argv[1]) == 0) {
         rclcpp::executors::StaticSingleThreadedExecutor exec;
 
@@ -171,7 +141,9 @@ int main(int argc, char* argv[]) {
 
         exec.add_node(tmr_node);
 
-        // TODO: Add all explosion nodes
+        for(std::shared_ptr<ExplosionNode> n : nodes) {
+            exec.add_node(n);
+        }
 
         // Create a thread for each of the two executors ...
         auto exec_thread = std::thread(
@@ -190,13 +162,17 @@ int main(int argc, char* argv[]) {
         rclcpp::shutdown();
         exec_thread.join();
         exec.remove_node(tmr_node);
-        // TODO: Remove all explosion nodes
+        for(std::shared_ptr<ExplosionNode> n : nodes) {
+            exec.remove_node(n);
+        }
     } else {
-        rclcpp::executors::MultiThreadedExecutor exec;
+        rclcpp::executors::MultiThreadedExecutor exec(rclcpp::ExecutorOptions(), 4);
 
         exec.add_node(tmr_node);
 
-        // TODO: Add all explosion nodes
+        for(std::shared_ptr<ExplosionNode> n : nodes) {
+            exec.add_node(n);
+        }
 
         // Create a thread for each of the two executors ...
         auto exec_thread = std::thread(
@@ -215,6 +191,8 @@ int main(int argc, char* argv[]) {
         rclcpp::shutdown();
         exec_thread.join();
         exec.remove_node(tmr_node);
-        // TODO: Remove all explosion nodes
+        for(std::shared_ptr<ExplosionNode> n : nodes) {
+            exec.remove_node(n);
+        }
     }
 }
