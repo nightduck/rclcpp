@@ -1,0 +1,69 @@
+@END: 1000000000
+@OVERHEAD: 0
+@START: 0
+@STEP: 5000000
+@SUB: 2
+@TIMER: 1
+
+@end_to_end_avg: 8117903
+
+@end_to_end_hist: 
+[0, 5000000)           1 |                                                    |
+[5000000, 10000000)     288 |@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@|
+
+@end_to_end_max: 9505607
+@end_to_end_min: 4719368
+
+
+
+@state[27414]: 0
+@state[27417]: 0
+@state[27416]: 0
+@state[27415]: 0
+@sub_avg[27417, many_subs_per_n]: 5992
+@sub_avg[27416, many_subs_per_n]: 9064
+@sub_avg[27414, many_subs_per_n]: 9232
+@sub_avg[27415, many_subs_per_n]: 10726
+
+@sub_count: 147900
+
+
+@time_in_state[1]: 30182
+@time_in_state[2]: 3394518
+@time_in_state[0]: 80569374
+@time_in_state_by_thread[27317, 0]: 76368224697381
+@time_in_state_by_thread[27324, 0]: 76368278657609
+@time_in_state_by_thread[27414, 1]: 152260308498181
+@time_in_state_by_thread[27323, 0]: 152736557313628
+@time_in_state_by_thread[27320, 0]: 152736560029615
+@time_in_state_by_thread[27322, 0]: 2896686384456049
+@time_in_state_by_thread[27319, 0]: 2896701417206470
+@time_in_state_by_thread[27417, 2]: 5941773565541803
+@time_in_state_by_thread[27416, 2]: 69276918338858992
+@time_in_state_by_thread[27321, 0]: 89111161222358081
+@time_in_state_by_thread[27325, 0]: 128909611911570567
+@time_in_state_by_thread[27316, 0]: 129062348442868808
+@time_in_state_by_thread[27318, 0]: 129062348512905609
+@time_in_state_by_thread[27414, 2]: 131556762870297455
+@time_in_state_by_thread[27415, 2]: 145199299020769086
+@time_in_state_by_thread[27417, 0]: 316044007852058866
+@time_in_state_by_thread[27414, 0]: 333790542716301788
+@time_in_state_by_thread[27416, 0]: 685669129877243522
+@time_in_state_by_thread[27415, 0]: 729269091296373813
+@time_per_state_avg[1]: 29552
+@time_per_state_avg[2]: 3502315
+@time_per_state_avg[0]: 10663256
+
+@time_per_state_hist[0]: 
+[5000000, 10000000)      49 |@@@@@@@@@@                                          |
+[10000000, 15000000)     240 |@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@|
+
+@time_per_state_max[1]: 50583
+@time_per_state_max[2]: 4243854
+@time_per_state_max[0]: 12942279
+@time_per_state_min[1]: 24211
+@time_per_state_min[2]: 2210491
+@time_per_state_min[0]: 5905500
+@timer_avg[27414, many_subs_per_n]: 31299
+
+@timer_count: 290
