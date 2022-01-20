@@ -1,0 +1,117 @@
+@END: 1000000000
+@OVERHEAD: 0
+@START: 0
+@STEP: 5000000
+@SUB: 2
+@TIMER: 1
+
+@end_to_end_avg: 76896262
+
+@end_to_end_hist: 
+[65000000, 70000000)      24 |@@@@@@@@                                            |
+[70000000, 75000000)     143 |@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@|
+[75000000, 78125K)      70 |@@@@@@@@@@@@@@@@@@@@@@@@@                           |
+[78125K, 85000000)      21 |@@@@@@@                                             |
+[85000000, 90000000)      20 |@@@@@@@                                             |
+[90000000, 95000000)       6 |@@                                                  |
+[95000000, 100000000)      10 |@@@                                                 |
+[100000000, 105000000)       3 |@                                                   |
+[105000000, 110000000)       3 |@                                                   |
+
+@end_to_end_max: 109551277
+@end_to_end_min: 66166468
+
+
+
+@state[23283]: 0
+@state[23277]: 0
+@state[23273]: 0
+@state[23281]: 0
+@state[23274]: 0
+@state[23276]: 0
+@state[23282]: 0
+@state[23280]: 0
+@state[23279]: 0
+@state[23284]: 0
+@state[23278]: 0
+@state[23275]: 0
+@sub_avg[23284, many_subs_per_n]: 5763
+@sub_avg[23278, many_subs_per_n]: 14131
+@sub_avg[23283, many_subs_per_n]: 14196
+@sub_avg[23279, many_subs_per_n]: 15249
+@sub_avg[23277, many_subs_per_n]: 15354
+@sub_avg[23280, many_subs_per_n]: 15924
+@sub_avg[23276, many_subs_per_n]: 16360
+@sub_avg[23282, many_subs_per_n]: 18024
+@sub_avg[23281, many_subs_per_n]: 19105
+@sub_avg[23275, many_subs_per_n]: 22096
+@sub_avg[23274, many_subs_per_n]: 23105
+
+@sub_count: 1228203
+
+
+@time_in_state[1]: 35892
+@time_in_state[2]: 61443
+@time_in_state[0]: 603314559
+@time_in_state_by_thread[23274, 2]: 12833185
+@time_in_state_by_thread[23275, 2]: 57484640727389
+@time_in_state_by_thread[23273, 1]: 57630625604930
+@time_in_state_by_thread[23276, 2]: 57636660591316
+@time_in_state_by_thread[23158, 0]: 57697624376903
+@time_in_state_by_thread[23165, 0]: 57698129122468
+@time_in_state_by_thread[23164, 0]: 115396258249187
+@time_in_state_by_thread[23161, 0]: 115396258262807
+@time_in_state_by_thread[23277, 2]: 229784548691605
+@time_in_state_by_thread[23278, 2]: 344736879602529
+@time_in_state_by_thread[23163, 0]: 2244586547098098
+@time_in_state_by_thread[23160, 0]: 2244586547988792
+@time_in_state_by_thread[23279, 2]: 15367909329170130
+@time_in_state_by_thread[23273, 0]: 17781312069536622
+@time_in_state_by_thread[23275, 0]: 17781663298367340
+@time_in_state_by_thread[23274, 0]: 18355290158247546
+@time_in_state_by_thread[23276, 0]: 18643874940415953
+@time_in_state_by_thread[23277, 0]: 19277397842908465
+@time_in_state_by_thread[23278, 0]: 21234134545922108
+@time_in_state_by_thread[23279, 0]: 30785556424549608
+@time_in_state_by_thread[23280, 0]: 64160532448205349
+@time_in_state_by_thread[23280, 2]: 110800590531679374
+@time_in_state_by_thread[23281, 0]: 111420779761851298
+@time_in_state_by_thread[23282, 0]: 272753634679801366
+@time_in_state_by_thread[23162, 0]: 482919946268169449
+@time_in_state_by_thread[23166, 0]: 484720131117118375
+@time_in_state_by_thread[23157, 0]: 486046878996058371
+@time_in_state_by_thread[23159, 0]: 524531735092405212
+@time_in_state_by_thread[23283, 0]: 563810868507503753
+@time_in_state_by_thread[23284, 2]: 1095418733676072031
+@time_in_state_by_thread[23281, 2]: 1194468500988735176
+@time_in_state_by_thread[23284, 0]: 1673850631284742811
+@time_in_state_by_thread[23283, 2]: 2935762364744416972
+@time_in_state_by_thread[23282, 2]: 3719518723864249496
+@time_in_state_by_thread[23285, 0]: 4685382860382838490
+@time_per_state_avg[1]: 45608
+@time_per_state_avg[2]: 39325816
+@time_per_state_avg[0]: 92271247
+
+@time_per_state_hist[0]: 
+[75000000, 78125K)       4 |@@                                                  |
+[78125K, 85000000)      43 |@@@@@@@@@@@@@@@@@@@@@@                              |
+[85000000, 90000000)      99 |@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@|
+[90000000, 95000000)      75 |@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@             |
+[95000000, 100000000)      31 |@@@@@@@@@@@@@@@@                                    |
+[100000000, 105000000)      21 |@@@@@@@@@@@                                         |
+[105000000, 110000000)      12 |@@@@@@                                              |
+[110000000, 115000000)       7 |@@@                                                 |
+[115000000, 120000000)       5 |@@                                                  |
+[120000000, 125000000)       1 |                                                    |
+[125000000, 130000000)       1 |                                                    |
+[130000000, 135000000)       1 |                                                    |
+
+@time_per_state_max[1]: 73022
+@time_per_state_max[2]: 83939044
+@time_per_state_max[0]: 133533731
+@time_per_state_min[1]: 32552
+@time_per_state_min[2]: 34794710
+@time_per_state_min[0]: 76712377
+@timer_avg[23273, many_subs_per_n]: 47474
+
+@timer_count: 301

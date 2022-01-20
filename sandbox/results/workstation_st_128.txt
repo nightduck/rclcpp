@@ -1,0 +1,68 @@
+@END: 1000000000
+@OVERHEAD: 0
+@START: 0
+@STEP: 5000000
+@SUB: 2
+@TIMER: 1
+
+@end_to_end_avg: 1703570
+
+@end_to_end_hist: 
+[0, 5000000)         300 |@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@|
+
+@end_to_end_max: 2502514
+@end_to_end_min: 1239330
+
+
+
+@state[21782]: 0
+@state[21780]: 0
+@state[21781]: 0
+@state[21783]: 0
+@sub_avg[21783, many_subs_per_n]: 5901
+@sub_avg[21782, many_subs_per_n]: 8731
+@sub_avg[21780, many_subs_per_n]: 9355
+@sub_avg[21781, many_subs_per_n]: 11024
+
+@sub_count: 37926
+
+
+@time_in_state[1]: 28231
+@time_in_state[2]: 937657
+@time_in_state[0]: 28422434
+@time_in_state_by_thread[21780, 1]: 8847456
+@time_in_state_by_thread[21693, 0]: 75661690724168
+@time_in_state_by_thread[21694, 0]: 75661690800181
+@time_in_state_by_thread[21690, 0]: 75661692015332
+@time_in_state_by_thread[21687, 0]: 151323341529979
+@time_in_state_by_thread[21783, 2]: 1509933192562416
+@time_in_state_by_thread[21692, 0]: 2869559321215529
+@time_in_state_by_thread[21689, 0]: 2945221013984019
+@time_in_state_by_thread[21782, 2]: 16536224597539218
+@time_in_state_by_thread[21780, 2]: 17594167541927533
+@time_in_state_by_thread[21691, 0]: 29269600581498730
+@time_in_state_by_thread[21781, 2]: 34656636537791778
+@time_in_state_by_thread[21686, 0]: 38057525658304398
+@time_in_state_by_thread[21695, 0]: 39041427566433876
+@time_in_state_by_thread[21688, 0]: 42673188435386171
+@time_in_state_by_thread[21783, 0]: 57756054308418316
+@time_in_state_by_thread[21780, 0]: 97714481399880351
+@time_in_state_by_thread[21781, 0]: 117942673328833138
+@time_in_state_by_thread[21782, 0]: 135456964592702133
+@time_per_state_avg[1]: 29706
+@time_per_state_avg[2]: 851070
+@time_per_state_avg[0]: 2140399
+
+@time_per_state_hist[0]: 
+[0, 5000000)         299 |@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@|
+[5000000, 10000000)       1 |                                                    |
+
+@time_per_state_max[1]: 37242
+@time_per_state_max[2]: 1086234
+@time_per_state_max[0]: 7297783
+@time_per_state_min[1]: 25401
+@time_per_state_min[2]: 656649
+@time_per_state_min[0]: 1530682
+@timer_avg[21780, many_subs_per_n]: 31401
+
+@timer_count: 301

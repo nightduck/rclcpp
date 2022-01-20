@@ -1,0 +1,77 @@
+@END: 1000000000
+@OVERHEAD: 0
+@START: 0
+@STEP: 5000000
+@SUB: 2
+@TIMER: 1
+
+@end_to_end_avg: 19740366
+
+@end_to_end_hist: 
+[15000000, 20000000)     178 |@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@|
+[20000000, 25000000)     122 |@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@                 |
+
+@end_to_end_max: 24545149
+@end_to_end_min: 15749642
+
+
+
+@state[16712]: 0
+@state[16711]: 0
+@state[16709]: 0
+@state[16710]: 0
+@sub_avg[16712, many_subs_per_n]: 4402
+@sub_avg[16709, many_subs_per_n]: 9109
+@sub_avg[16711, many_subs_per_n]: 9335
+@sub_avg[16710, many_subs_per_n]: 11322
+
+@sub_count: 615846
+
+
+@time_in_state[1]: 30851
+@time_in_state[2]: 12734324
+@time_in_state[0]: 316330267
+@time_in_state_by_thread[16709, 1]: 9247047
+@time_in_state_by_thread[16615, 0]: 82499761025504
+@time_in_state_by_thread[16611, 0]: 82499764153032
+@time_in_state_by_thread[16608, 0]: 164999076082961
+@time_in_state_by_thread[16614, 0]: 164999521975375
+@time_in_state_by_thread[16613, 0]: 3211884169090651
+@time_in_state_by_thread[16610, 0]: 3211884173179596
+@time_in_state_by_thread[16712, 2]: 101301158868738320
+@time_in_state_by_thread[16612, 0]: 351684529285783269
+@time_in_state_by_thread[16709, 0]: 447031444496262919
+@time_in_state_by_thread[16711, 2]: 460747117800003117
+@time_in_state_by_thread[16607, 0]: 523130371629644158
+@time_in_state_by_thread[16616, 0]: 529812839615494010
+@time_in_state_by_thread[16609, 0]: 542847798615311033
+@time_in_state_by_thread[16709, 2]: 660508330543065283
+@time_in_state_by_thread[16710, 2]: 821033243390776123
+@time_in_state_by_thread[16712, 0]: 2029160420472456111
+@time_in_state_by_thread[16710, 0]: 3185893641974803171
+@time_in_state_by_thread[16711, 0]: 4029183611115801848
+@time_per_state_avg[1]: 31047
+@time_per_state_avg[2]: 12936651
+@time_per_state_avg[0]: 22992196
+
+@time_per_state_hist[0]: 
+[15000000, 20000000)      13 |@@                                                  |
+[20000000, 25000000)     254 |@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@|
+[25000000, 30000000)      32 |@@@@@@                                              |
+[30000000, 35000000)       0 |                                                    |
+[35000000, 40000000)       0 |                                                    |
+[40000000, 45000000)       0 |                                                    |
+[45000000, 50000000)       0 |                                                    |
+[50000000, 55000000)       0 |                                                    |
+[55000000, 60000000)       0 |                                                    |
+[60000000, 65000000)       1 |                                                    |
+
+@time_per_state_max[1]: 47001
+@time_per_state_max[2]: 15807872
+@time_per_state_max[0]: 60709343
+@time_per_state_min[1]: 23781
+@time_per_state_min[2]: 10591311
+@time_per_state_min[0]: 17220072
+@timer_avg[16709, many_subs_per_n]: 32827
+
+@timer_count: 301

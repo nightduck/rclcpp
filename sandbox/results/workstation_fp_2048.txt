@@ -1,0 +1,100 @@
+@END: 1000000000
+@OVERHEAD: 0
+@START: 0
+@STEP: 5000000
+@SUB: 2
+@TIMER: 1
+
+@end_to_end_avg: 29201715
+
+@end_to_end_hist: 
+[20000000, 25000000)       2 |                                                    |
+[25000000, 30000000)     223 |@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@|
+[30000000, 35000000)      67 |@@@@@@@@@@@@@@@                                     |
+[35000000, 40000000)       8 |@                                                   |
+
+@end_to_end_max: 38800613
+@end_to_end_min: 24891063
+
+
+
+@state[20168]: 0
+@state[20174]: 0
+@state[20165]: 0
+@state[20169]: 0
+@state[20173]: 0
+@state[20172]: 0
+@state[20170]: 0
+@state[20166]: 0
+@state[20167]: 0
+@state[20171]: 0
+@state[20175]: 0
+@sub_avg[20175, many_subs_per_n]: 6210
+@sub_avg[20168, many_subs_per_n]: 11816
+@sub_avg[20170, many_subs_per_n]: 12966
+@sub_avg[20174, many_subs_per_n]: 13026
+@sub_avg[20169, many_subs_per_n]: 13165
+@sub_avg[20171, many_subs_per_n]: 14721
+@sub_avg[20172, many_subs_per_n]: 14938
+@sub_avg[20173, many_subs_per_n]: 14982
+@sub_avg[20167, many_subs_per_n]: 15331
+@sub_avg[20166, many_subs_per_n]: 18397
+
+@sub_count: 615846
+
+
+@time_in_state[1]: 40722
+@time_in_state[2]: 16410183
+@time_in_state[0]: 299016216
+@time_in_state_by_thread[20165, 1]: 11196955
+@time_in_state_by_thread[20166, 2]: 56988562031581
+@time_in_state_by_thread[20167, 2]: 57099575824605
+@time_in_state_by_thread[20044, 0]: 57274962003010
+@time_in_state_by_thread[20050, 0]: 57275181677282
+@time_in_state_by_thread[20051, 0]: 57275181687622
+@time_in_state_by_thread[20047, 0]: 57275181687792
+@time_in_state_by_thread[20168, 2]: 171463715906293
+@time_in_state_by_thread[20049, 0]: 2170850011335592
+@time_in_state_by_thread[20046, 0]: 2228125193656563
+@time_in_state_by_thread[20169, 2]: 6223234759150818
+@time_in_state_by_thread[20165, 0]: 17650865886631551
+@time_in_state_by_thread[20166, 0]: 17764542354601909
+@time_in_state_by_thread[20168, 0]: 18336687692370704
+@time_in_state_by_thread[20167, 0]: 19020085672831477
+@time_in_state_by_thread[20169, 0]: 19250254313432720
+@time_in_state_by_thread[20170, 2]: 20848928732348606
+@time_in_state_by_thread[20170, 0]: 29072676320929554
+@time_in_state_by_thread[20171, 0]: 47295843550602839
+@time_in_state_by_thread[20172, 0]: 76434316206207832
+@time_in_state_by_thread[20173, 0]: 87917414070780011
+@time_in_state_by_thread[20171, 2]: 115052261430446599
+@time_in_state_by_thread[20174, 0]: 159490336702623512
+@time_in_state_by_thread[20048, 0]: 243407583316060536
+@time_in_state_by_thread[20043, 0]: 244163355034674679
+@time_in_state_by_thread[20052, 0]: 246340108747156819
+@time_in_state_by_thread[20045, 0]: 252411276859881173
+@time_in_state_by_thread[20175, 2]: 339790161404921884
+@time_in_state_by_thread[20175, 0]: 375338206109797714
+@time_in_state_by_thread[20172, 2]: 400449143551864845
+@time_in_state_by_thread[20173, 2]: 1114627056432945016
+@time_in_state_by_thread[20174, 2]: 1214734692718273481
+@time_in_state_by_thread[20176, 0]: 7895030986828140780
+@time_per_state_avg[1]: 37517
+@time_per_state_avg[2]: 17952239
+@time_per_state_avg[0]: 36485345
+
+@time_per_state_hist[0]: 
+[30000000, 35000000)      79 |@@@@@@@@@@@@@@@@@@@@@                               |
+[35000000, 40000000)     194 |@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@|
+[40000000, 45000000)      24 |@@@@@@                                              |
+[45000000, 50000000)       3 |                                                    |
+
+@time_per_state_max[1]: 48862
+@time_per_state_max[2]: 21963022
+@time_per_state_max[0]: 46211283
+@time_per_state_min[1]: 29001
+@time_per_state_min[2]: 12670808
+@time_per_state_min[0]: 30265823
+@timer_avg[20165, many_subs_per_n]: 39487
+
+@timer_count: 301
