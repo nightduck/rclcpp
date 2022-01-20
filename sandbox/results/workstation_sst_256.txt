@@ -1,0 +1,69 @@
+@END: 1000000000
+@OVERHEAD: 0
+@START: 0
+@STEP: 5000000
+@SUB: 2
+@TIMER: 1
+
+@end_to_end_avg: 2690825
+
+@end_to_end_hist: 
+[0, 5000000)         300 |@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@|
+
+@end_to_end_max: 4666867
+@end_to_end_min: 2247196
+
+
+
+@state[1231]: 0
+@state[1232]: 0
+@state[1230]: 0
+@state[1234]: 0
+@sub_avg[1234, many_subs_per_n]: 5724
+@sub_avg[1232, many_subs_per_n]: 8767
+@sub_avg[1230, many_subs_per_n]: 9229
+@sub_avg[1231, many_subs_per_n]: 10403
+
+@sub_count: 76454
+
+
+@time_in_state[1]: 31331
+@time_in_state[2]: 1663981
+@time_in_state[0]: 47470929
+@time_in_state_by_thread[1230, 1]: 9101561
+@time_in_state_by_thread[1143, 0]: 80858466774838
+@time_in_state_by_thread[1140, 0]: 80858469133038
+@time_in_state_by_thread[1137, 0]: 161716869079620
+@time_in_state_by_thread[1144, 0]: 161716933653951
+@time_in_state_by_thread[1234, 2]: 1694709603817651
+@time_in_state_by_thread[1142, 0]: 3147894017635054
+@time_in_state_by_thread[1139, 0]: 3147894020831852
+@time_in_state_by_thread[1232, 2]: 49148400835170976
+@time_in_state_by_thread[1141, 0]: 52789104551918945
+@time_in_state_by_thread[1230, 2]: 53265656713539198
+@time_in_state_by_thread[1230, 0]: 57694664738978380
+@time_in_state_by_thread[1145, 0]: 71964023733760408
+@time_in_state_by_thread[1136, 0]: 72853166820544179
+@time_in_state_by_thread[1138, 0]: 73015183713487656
+@time_in_state_by_thread[1231, 2]: 98144908585829863
+@time_in_state_by_thread[1234, 0]: 124289040137658913
+@time_in_state_by_thread[1231, 0]: 330879446988166260
+@time_in_state_by_thread[1232, 0]: 377617049621667246
+@time_per_state_avg[1]: 30559
+@time_per_state_avg[2]: 1675114
+@time_per_state_avg[0]: 2842051
+
+@time_per_state_hist[0]: 
+[0, 5000000)         299 |@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@|
+[5000000, 10000000)       0 |                                                    |
+[10000000, 15000000)       1 |                                                    |
+
+@time_per_state_max[1]: 38941
+@time_per_state_max[2]: 2164132
+@time_per_state_max[0]: 12540028
+@time_per_state_min[1]: 24911
+@time_per_state_min[2]: 1528327
+@time_per_state_min[0]: 2082829
+@timer_avg[1230, many_subs_per_n]: 32295
+
+@timer_count: 301
