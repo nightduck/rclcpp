@@ -62,7 +62,11 @@ int main(int argc, char* argv[]) {
 
     // Create a bunch of explosion nodes
     std::list<std::shared_ptr<ExplosionNode>> nodes;
-    for (int i = 2; i < 0x800; i = i << 1) {
+    int max_size = 0x800;
+    if (argc >= 2) {
+        max_size = atoi(argv[1]);
+    }
+    for (int i = 2; i < max_size; i = i << 1) {
         char buffer[16];
         sprintf(buffer, "node_%d", i);
         nodes.push_back(
@@ -70,11 +74,11 @@ int main(int argc, char* argv[]) {
         );
     }
 
-    const std::chrono::seconds EXPERIMENT_DURATION = 20s;
+    const std::chrono::seconds EXPERIMENT_DURATION = 300s;
 
-    std::this_thread::sleep_for(3s);
+    std::this_thread::sleep_for(5s);
     
-    if (argc >= 2 && std::string("fp").compare(argv[1]) == 0) {
+    if (argc >= 3 && std::string("fp").compare(argv[2]) == 0) {
         rclcpp::executors::FixedPrioExecutor exec(pp);
 
         exec.add_node(tmr_node);
@@ -103,21 +107,37 @@ int main(int argc, char* argv[]) {
         for(std::shared_ptr<ExplosionNode> n : nodes) {
             exec.remove_node(n);
         }
-    } else if (argc >= 2 && std::string("st").compare(argv[1]) == 0) {
+    } else if (argc >= 3 && std::string("st").compare(argv[2]) == 0) {
         rclcpp::executors::SingleThreadedExecutor exec;
-
-        // TODO: Simulate PiCAS with multiple ST executors, many with multiple nodes
+        rclcpp::executors::SingleThreadedExecutor exec2;
+        rclcpp::executors::SingleThreadedExecutor exec3;
+        rclcpp::executors::SingleThreadedExecutor exec4;
 
         exec.add_node(tmr_node);
-
-        for(std::shared_ptr<ExplosionNode> n : nodes) {
-            exec.add_node(n);
+        auto it = nodes.rbegin();
+        exec4.add_node(*it++);
+        exec3.add_node(*it++);
+        exec2.add_node(*it++);
+        for (; it != nodes.rend(); ++it) {
+            exec.add_node(*it);
         }
 
         // Create a thread for each of the two executors ...
         auto exec_thread = std::thread(
         [&]() {
             exec.spin();
+        });
+        auto exec2_thread = std::thread(
+        [&]() {
+            exec2.spin();
+        });
+        auto exec3_thread = std::thread(
+        [&]() {
+            exec3.spin();
+        });
+        auto exec4_thread = std::thread(
+        [&]() {
+            exec4.spin();
         });
 
         // Creating the threads immediately started them.
@@ -130,25 +150,49 @@ int main(int argc, char* argv[]) {
         // ... and stop the experiment.
         rclcpp::shutdown();
         exec_thread.join();
+        exec2_thread.join();
+        exec3_thread.join();
+        exec4_thread.join();
+        
         exec.remove_node(tmr_node);
-        for(std::shared_ptr<ExplosionNode> n : nodes) {
-            exec.remove_node(n);
+        it = nodes.rbegin();
+        exec4.remove_node(*it++);
+        exec3.remove_node(*it++);
+        exec2.remove_node(*it++);
+        for (; it != nodes.rend(); ++it) {
+            exec.remove_node(*it);
         }
-    } else if (argc >= 2 && std::string("sst").compare(argv[1]) == 0) {
+    } else if (argc >= 3 && std::string("sst").compare(argv[2]) == 0) {
         rclcpp::executors::StaticSingleThreadedExecutor exec;
-
-        // TODO: Simulate PiCAS with multiple ST executors, many with multiple nodes
+        rclcpp::executors::StaticSingleThreadedExecutor exec2;
+        rclcpp::executors::StaticSingleThreadedExecutor exec3;
+        rclcpp::executors::StaticSingleThreadedExecutor exec4;
 
         exec.add_node(tmr_node);
-
-        for(std::shared_ptr<ExplosionNode> n : nodes) {
-            exec.add_node(n);
+        auto it = nodes.rbegin();
+        exec4.add_node(*it++);
+        exec3.add_node(*it++);
+        exec2.add_node(*it++);
+        for (; it != nodes.rend(); ++it) {
+            exec.add_node(*it);
         }
 
         // Create a thread for each of the two executors ...
         auto exec_thread = std::thread(
         [&]() {
             exec.spin();
+        });
+        auto exec2_thread = std::thread(
+        [&]() {
+            exec2.spin();
+        });
+        auto exec3_thread = std::thread(
+        [&]() {
+            exec3.spin();
+        });
+        auto exec4_thread = std::thread(
+        [&]() {
+            exec4.spin();
         });
 
         // Creating the threads immediately started them.
@@ -161,9 +205,17 @@ int main(int argc, char* argv[]) {
         // ... and stop the experiment.
         rclcpp::shutdown();
         exec_thread.join();
+        exec2_thread.join();
+        exec3_thread.join();
+        exec4_thread.join();
+        
         exec.remove_node(tmr_node);
-        for(std::shared_ptr<ExplosionNode> n : nodes) {
-            exec.remove_node(n);
+        it = nodes.rbegin();
+        exec4.remove_node(*it++);
+        exec3.remove_node(*it++);
+        exec2.remove_node(*it++);
+        for (; it != nodes.rend(); ++it) {
+            exec.remove_node(*it);
         }
     } else {
         rclcpp::executors::MultiThreadedExecutor exec(rclcpp::ExecutorOptions(), 4);
