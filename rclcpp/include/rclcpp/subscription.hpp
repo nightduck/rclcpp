@@ -62,16 +62,17 @@ class NodeTopicsInterface;
 template<
   typename CallbackMessageT,
   typename AllocatorT = std::allocator<void>,
+  typename MsgAllocatorT = AllocatorT,
   typename MessageMemoryStrategyT = rclcpp::message_memory_strategy::MessageMemoryStrategy<
     CallbackMessageT,
-    AllocatorT
+    MsgAllocatorT
   >>
 class Subscription : public SubscriptionBase
 {
   friend class rclcpp::node_interfaces::NodeTopicsInterface;
 
 public:
-  using MessageAllocatorTraits = allocator::AllocRebind<CallbackMessageT, AllocatorT>;
+  using MessageAllocatorTraits = allocator::AllocRebind<CallbackMessageT, MsgAllocatorT>;
   using MessageAllocator = typename MessageAllocatorTraits::allocator_type;
   using MessageDeleter = allocator::Deleter<MessageAllocator, CallbackMessageT>;
   using ConstMessageSharedPtr = std::shared_ptr<const CallbackMessageT>;
@@ -104,7 +105,7 @@ public:
     const rosidl_message_type_support_t & type_support_handle,
     const std::string & topic_name,
     const rclcpp::QoS & qos,
-    AnySubscriptionCallback<CallbackMessageT, AllocatorT> callback,
+    AnySubscriptionCallback<CallbackMessageT, MsgAllocatorT> callback,
     const rclcpp::SubscriptionOptionsWithAllocator<AllocatorT> & options,
     typename MessageMemoryStrategyT::SharedPtr message_memory_strategy,
     SubscriptionTopicStatisticsSharedPtr subscription_topic_statistics = nullptr)
@@ -168,11 +169,11 @@ public:
       auto context = node_base->get_context();
       using SubscriptionIntraProcessT = rclcpp::experimental::SubscriptionIntraProcess<
         CallbackMessageT,
-        AllocatorT,
+        MsgAllocatorT,
         typename MessageUniquePtr::deleter_type>;
       auto subscription_intra_process = std::make_shared<SubscriptionIntraProcessT>(
         callback,
-        options.get_allocator(),
+        std::make_shared<MsgAllocatorT>(),
         context,
         this->get_topic_name(),  // important to get like this, as it has the fully-qualified name
         qos_profile,
@@ -324,14 +325,14 @@ public:
 private:
   RCLCPP_DISABLE_COPY(Subscription)
 
-  AnySubscriptionCallback<CallbackMessageT, AllocatorT> any_callback_;
+  AnySubscriptionCallback<CallbackMessageT, MsgAllocatorT> any_callback_;
   /// Copy of original options passed during construction.
   /**
    * It is important to save a copy of this so that the rmw payload which it
    * may contain is kept alive for the duration of the subscription.
    */
   const rclcpp::SubscriptionOptionsWithAllocator<AllocatorT> options_;
-  typename message_memory_strategy::MessageMemoryStrategy<CallbackMessageT, AllocatorT>::SharedPtr
+  typename message_memory_strategy::MessageMemoryStrategy<CallbackMessageT, MsgAllocatorT>::SharedPtr
     message_memory_strategy_;
   /// Component which computes and publishes topic statistics for this subscriber
   SubscriptionTopicStatisticsSharedPtr subscription_topic_statistics_{nullptr};

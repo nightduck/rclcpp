@@ -210,6 +210,7 @@ do_custom_allocator_test(
     test_msgs::msg::Empty,
     decltype(callback),
     SubscriptionAllocatorT,
+    SubscribedMessageAllocatorT,
     CallbackMessageT,
     rclcpp::Subscription<CallbackMessageT, SubscriptionAllocatorT>,
     rclcpp::message_memory_strategy::MessageMemoryStrategy<

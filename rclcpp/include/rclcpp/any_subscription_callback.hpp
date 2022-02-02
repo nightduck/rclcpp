@@ -60,12 +60,26 @@ class AnySubscriptionCallback
   UniquePtrWithInfoCallback unique_ptr_with_info_callback_;
 
 public:
-  explicit AnySubscriptionCallback(std::shared_ptr<Alloc> allocator)
+  template <typename U, std::enable_if_t<std::is_same<U, Alloc>::value, bool> = true>
+  explicit AnySubscriptionCallback(
+      std::shared_ptr<U>& allocator)
   : shared_ptr_callback_(nullptr), shared_ptr_with_info_callback_(nullptr),
     const_shared_ptr_callback_(nullptr), const_shared_ptr_with_info_callback_(nullptr),
     unique_ptr_callback_(nullptr), unique_ptr_with_info_callback_(nullptr)
   {
-    message_allocator_ = std::make_shared<MessageAlloc>(*allocator.get());
+    std::make_shared<MessageAlloc>(*allocator.get()).swap(message_allocator_);
+    allocator::set_allocator_for_deleter(&message_deleter_, message_allocator_.get());
+  }
+
+  // If trying to initialize with incorrect allocator type, ignore and make a new one
+  template <typename U, std::enable_if_t<not std::is_same<U, Alloc>::value, bool> = true>
+  explicit AnySubscriptionCallback(
+      std::shared_ptr<U>& allocator)
+  : shared_ptr_callback_(nullptr), shared_ptr_with_info_callback_(nullptr),
+    const_shared_ptr_callback_(nullptr), const_shared_ptr_with_info_callback_(nullptr),
+    unique_ptr_callback_(nullptr), unique_ptr_with_info_callback_(nullptr)
+  {
+    std::make_shared<MessageAlloc>().swap(message_allocator_);
     allocator::set_allocator_for_deleter(&message_deleter_, message_allocator_.get());
   }
 

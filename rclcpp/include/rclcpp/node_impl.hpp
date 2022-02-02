@@ -84,6 +84,7 @@ template<
   typename MessageT,
   typename CallbackT,
   typename AllocatorT,
+  typename MsgAllocatorT,
   typename CallbackMessageT,
   typename SubscriptionT,
   typename MessageMemoryStrategyT>
@@ -95,7 +96,7 @@ Node::create_subscription(
   const SubscriptionOptionsWithAllocator<AllocatorT> & options,
   typename MessageMemoryStrategyT::SharedPtr msg_mem_strat)
 {
-  return rclcpp::create_subscription<MessageT, CallbackT, AllocatorT, CallbackMessageT, SubscriptionT, MessageMemoryStrategyT>(
+  return rclcpp::create_subscription<MessageT, CallbackT, AllocatorT, MsgAllocatorT, CallbackMessageT, SubscriptionT, MessageMemoryStrategyT>(
     *this,
     extend_name_with_sub_namespace(topic_name, this->get_sub_namespace()),
     qos,

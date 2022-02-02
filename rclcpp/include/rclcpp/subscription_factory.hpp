@@ -74,12 +74,13 @@ template<
   typename MessageT,
   typename CallbackT,
   typename AllocatorT,
+  typename MsgAllocatorT = AllocatorT,
   typename CallbackMessageT =
     typename rclcpp::subscription_traits::has_message_type<CallbackT>::type,
-  typename SubscriptionT = rclcpp::Subscription<CallbackMessageT, AllocatorT>,
+  typename SubscriptionT = rclcpp::Subscription<CallbackMessageT, AllocatorT, MsgAllocatorT>,
   typename MessageMemoryStrategyT = rclcpp::message_memory_strategy::MessageMemoryStrategy<
     CallbackMessageT,
-    AllocatorT
+    MsgAllocatorT
   >>
 SubscriptionFactory
 create_subscription_factory(
@@ -93,7 +94,7 @@ create_subscription_factory(
   auto allocator = options.get_allocator();
 
   using rclcpp::AnySubscriptionCallback;
-  AnySubscriptionCallback<CallbackMessageT, AllocatorT> any_subscription_callback(allocator);
+  AnySubscriptionCallback<CallbackMessageT, MsgAllocatorT> any_subscription_callback(allocator);
   any_subscription_callback.set(std::forward<CallbackT>(callback));
 
   SubscriptionFactory factory {

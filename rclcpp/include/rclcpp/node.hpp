@@ -201,12 +201,13 @@ public:
     typename MessageT,
     typename CallbackT,
     typename AllocatorT = std::allocator<void>,
+    typename MsgAllocatorT = AllocatorT,
     typename CallbackMessageT =
-    typename rclcpp::subscription_traits::has_message_type<CallbackT>::type,
-    typename SubscriptionT = rclcpp::Subscription<CallbackMessageT, AllocatorT>,
+      typename rclcpp::subscription_traits::has_message_type<CallbackT>::type,
+    typename SubscriptionT = rclcpp::Subscription<CallbackMessageT, AllocatorT, MsgAllocatorT>,
     typename MessageMemoryStrategyT = rclcpp::message_memory_strategy::MessageMemoryStrategy<
       CallbackMessageT,
-      AllocatorT
+      MsgAllocatorT
     >
   >
   std::shared_ptr<SubscriptionT>

@@ -68,6 +68,7 @@ template<
   typename MessageT,
   typename CallbackT,
   typename AllocatorT = std::allocator<void>,
+  typename MsgAllocatorT = AllocatorT,
   typename CallbackMessageT =
   typename rclcpp::subscription_traits::has_message_type<CallbackT>::type,
   typename SubscriptionT = rclcpp::Subscription<CallbackMessageT, AllocatorT>,
@@ -141,7 +142,7 @@ create_subscription(
     subscription_topic_stats->set_publisher_timer(timer);
   }
 
-  auto factory = rclcpp::create_subscription_factory<MessageT, CallbackT, AllocatorT, CallbackMessageT, SubscriptionT, MessageMemoryStrategyT>(
+  auto factory = rclcpp::create_subscription_factory<MessageT, CallbackT, AllocatorT, MsgAllocatorT, CallbackMessageT, SubscriptionT, MessageMemoryStrategyT>(
     std::forward<CallbackT>(callback),
     options,
     msg_mem_strat,

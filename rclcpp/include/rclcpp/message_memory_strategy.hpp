@@ -115,6 +115,11 @@ public:
     serialized_msg.reset();
   }
 
+  std::shared_ptr<MessageAlloc> get_allocator()
+  {
+    return message_allocator_;
+  }
+
   std::shared_ptr<MessageAlloc> message_allocator_;
   MessageDeleter message_deleter_;
 
