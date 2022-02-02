@@ -47,17 +47,21 @@ template<typename MessageT, typename AllocatorT>
 class LoanedMessage;
 
 /// A publisher publishes messages of any type to a topic.
-template<typename MessageT, typename AllocatorT = std::allocator<void>>
+template<
+  typename MessageT,
+  typename AllocatorT = std::allocator<void>,
+  typename MsgAllocatorT = AllocatorT
+  >
 class Publisher : public PublisherBase
 {
 public:
-  using MessageAllocatorTraits = allocator::AllocRebind<MessageT, AllocatorT>;
+  using MessageAllocatorTraits = allocator::AllocRebind<MessageT, MsgAllocatorT>;
   using MessageAllocator = typename MessageAllocatorTraits::allocator_type;
   using MessageDeleter = allocator::Deleter<MessageAllocator, MessageT>;
   using MessageUniquePtr = std::unique_ptr<MessageT, MessageDeleter>;
   using MessageSharedPtr = std::shared_ptr<const MessageT>;
 
-  RCLCPP_SMART_PTR_DEFINITIONS(Publisher<MessageT, AllocatorT>)
+  RCLCPP_SMART_PTR_DEFINITIONS(Publisher<MessageT, AllocatorT, MsgAllocatorT>)
 
   /// Default constructor.
   /**
@@ -80,9 +84,10 @@ public:
       topic,
       *rosidl_typesupport_cpp::get_message_type_support_handle<MessageT>(),
       options.template to_rcl_publisher_options<MessageT>(qos)),
-    options_(options),
-    message_allocator_(new MessageAllocator(*options.get_allocator().get()))
+    options_(options)
   {
+    set_msg_alloc(*options.get_allocator().get());
+
     allocator::set_allocator_for_deleter(&message_deleter_, message_allocator_.get());
 
     if (options_.event_callbacks.deadline_callback) {
@@ -170,10 +175,10 @@ public:
    *
    * \return LoanedMessage containing memory for a ROS message of type MessageT
    */
-  rclcpp::LoanedMessage<MessageT, AllocatorT>
+  rclcpp::LoanedMessage<MessageT, MsgAllocatorT>
   borrow_loaned_message()
   {
-    return rclcpp::LoanedMessage<MessageT, AllocatorT>(this, this->get_allocator());
+    return rclcpp::LoanedMessage<MessageT, MsgAllocatorT>(this, this->get_allocator());
   }
 
   /// Send a message to the topic for this publisher.
@@ -243,7 +248,7 @@ public:
    * \param loaned_msg The LoanedMessage instance to be published.
    */
   void
-  publish(rclcpp::LoanedMessage<MessageT, AllocatorT> && loaned_msg)
+  publish(rclcpp::LoanedMessage<MessageT, MsgAllocatorT> && loaned_msg)
   {
     if (!loaned_msg.is_valid()) {
       throw std::runtime_error("loaned message is not valid");
@@ -341,7 +346,7 @@ protected:
       throw std::runtime_error("cannot publish msg which is a null pointer");
     }
 
-    ipm->template do_intra_process_publish<MessageT, AllocatorT>(
+    ipm->template do_intra_process_publish<MessageT, MsgAllocatorT>(
       intra_process_publisher_id_,
       std::move(msg),
       message_allocator_);
@@ -359,10 +364,24 @@ protected:
       throw std::runtime_error("cannot publish msg which is a null pointer");
     }
 
-    return ipm->template do_intra_process_publish_and_return_shared<MessageT, AllocatorT>(
+    return ipm->template do_intra_process_publish_and_return_shared<MessageT, MsgAllocatorT>(
       intra_process_publisher_id_,
       std::move(msg),
       message_allocator_);
+  }
+
+  template<typename A = AllocatorT>
+  void
+  set_msg_alloc(const typename std::enable_if<std::is_same<A, MsgAllocatorT>::value, A>::type& alloc) {
+    message_allocator_.reset(new MessageAllocator(alloc));
+    return;
+  }
+
+  template<typename A = AllocatorT>
+  void
+  set_msg_alloc(const typename std::enable_if<not std::is_same<A, MsgAllocatorT>::value, A>::type& alloc) {
+    message_allocator_.reset(new MessageAllocator());
+    return;
   }
 
   /// Copy of original options passed during construction.
