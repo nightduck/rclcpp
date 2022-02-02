@@ -75,7 +75,7 @@ template<
   typename CallbackT,
   typename AllocatorT,
   typename CallbackMessageT =
-  typename rclcpp::subscription_traits::has_message_type<CallbackT>::type,
+    typename rclcpp::subscription_traits::has_message_type<CallbackT>::type,
   typename SubscriptionT = rclcpp::Subscription<CallbackMessageT, AllocatorT>,
   typename MessageMemoryStrategyT = rclcpp::message_memory_strategy::MessageMemoryStrategy<
     CallbackMessageT,
@@ -107,7 +107,7 @@ create_subscription_factory(
       using rclcpp::Subscription;
       using rclcpp::SubscriptionBase;
 
-      auto sub = Subscription<CallbackMessageT, AllocatorT>::make_shared(
+      auto sub = SubscriptionT::make_shared(
         node_base,
         *rosidl_typesupport_cpp::get_message_type_support_handle<MessageT>(),
         topic_name,
