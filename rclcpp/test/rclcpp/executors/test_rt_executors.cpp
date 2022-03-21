@@ -278,56 +278,59 @@ TEST_F(TestRTExecutors, priority_checking) {
     });
 }
 
-TEST_F(TestRTExecutors, subscription_spam) {
-  rclcpp::executors::FixedPrioExecutor executor([](rclcpp::AnyExecutable){return 50;});
+// TEST_F(TestRTExecutors, subscription_spam) {
+//   rclcpp::executors::FixedPrioExecutor executor([](rclcpp::AnyExecutable){return 50;});
 
-  ASSERT_GT(executor.get_number_of_threads(), 1u);
+//   ASSERT_GT(executor.get_number_of_threads(), 1u);
 
-  std::shared_ptr<rclcpp::Node> ping_node =
-    std::make_shared<rclcpp::Node>("ping_node");
-  std::shared_ptr<rclcpp::Node> pong_node =
-    std::make_shared<rclcpp::Node>("pong_node");
+//   std::shared_ptr<rclcpp::Node> ping_node =
+//     std::make_shared<rclcpp::Node>("ping_node");
+//   std::shared_ptr<rclcpp::Node> pong_node =
+//     std::make_shared<rclcpp::Node>("pong_node");
 
-  
-  auto ping_pub = ping_node->create_publisher<std_msgs::msg::Int32>("ping", 10);
-  auto pong_pub = pong_node->create_publisher<std_msgs::msg::Int32>("pong", 10);
+//   auto ping_pub = ping_node->create_publisher<std_msgs::msg::Int32>("ping", 10);
+//   auto pong_pub = pong_node->create_publisher<std_msgs::msg::Int32>("pong", 10);
 
-  rclcpp::Clock system_clock(RCL_STEADY_TIME);
-  std::atomic_int ping_timer_count {0};
-  std::atomic_int pong_timer_count {0};
+//   rclcpp::Clock system_clock(RCL_STEADY_TIME);
+//   std::atomic_int ping_timer_count {0};
+//   std::atomic_int pong_timer_count {0};
 
-  auto ping_tmr_callback = [&ping_timer_count, &system_clock, &ping_pub]() {
-    ping_timer_count++;
+//   auto ping_tmr_callback = [&ping_timer_count, &system_clock, &ping_pub]() {
+//     ping_timer_count++;
 
-    rclcpp::Time start = system_clock.now();
+//     rclcpp::Time start = system_clock.now();
 
-    while (system_clock.now() - start < rclcpp::Duration::from_nanoseconds(100000000));
+//     while (system_clock.now() - start < rclcpp::Duration::from_nanoseconds(100000000));
 
-    auto msg = std::make_unique<std_msgs::msg::Int32>();
-    msg->data = ping_timer_count;
-    ping_pub->publish(std::move(msg));
-  };
-  auto pong_tmr_callback = [&pong_timer_count, &system_clock, &pong_pub]() {
-    pong_timer_count++;
+//     auto msg = std::make_unique<std_msgs::msg::Int32>();
+//     msg->data = ping_timer_count;
+//     ping_pub->publish(std::move(msg));
+//   };
+//   auto pong_tmr_callback = [&pong_timer_count, &system_clock, &pong_pub]() {
+//     pong_timer_count++;
 
-    rclcpp::Time start;
-    
-    for (int i = 0; i < 10; i++)
-    {
-      start = system_clock.now();
-      while(system_clock.now() - start < rclcpp::Duration::from_nanoseconds(10000000));
+//     rclcpp::Time start;
 
-      auto msg = std::make_unique<std_msgs::msg::Int32>();
-      msg->data = pong_timer_count;
-      pong_pub->publish(std::move(msg));
-    }
+//     for (int i = 0; i < 10; i++)
+//     {
+//       start = system_clock.now();
+//       while(system_clock.now() - start < rclcpp::Duration::from_nanoseconds(10000000));
+
+//       auto msg = std::make_unique<std_msgs::msg::Int32>();
+//       msg->data = pong_timer_count;
+//       pong_pub->publish(std::move(msg));
+//     }
 
 
-  };
-  auto ping_sub_callback = []() {
+//   };
+//   auto ping_sub_callback = []() {
 
-  };
-  auto pong_sub_callback = []() {
+//   };
+//   auto pong_sub_callback = []() {
 
-  };
-}
+//   };
+// }
+
+// TODO(nightduck): Test two subscriptions in same cbg don't run at same time
+// TODO(nightduck): Test two subscriptions in diff cbg run at same time
+// TODO(nightduck): Test two subscriptions in same reenrant cbg run at same time

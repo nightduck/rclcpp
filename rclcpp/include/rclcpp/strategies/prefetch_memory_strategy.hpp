@@ -51,9 +51,9 @@ namespace prefetch_memory_strategy
 template<
   typename Alloc = std::allocator<void>,
   typename Adaptor = std::priority_queue<std::shared_ptr<AnyExecutable>>
-  >
+>
 class PrefetchMemoryStrategy
-    : public memory_strategy::MemoryStrategy
+  : public memory_strategy::MemoryStrategy
 {
 public:
   RCLCPP_SMART_PTR_DEFINITIONS(PrefetchMemoryStrategy)
@@ -63,10 +63,11 @@ public:
     std::is_base_of<std::priority_queue<std::shared_ptr<AnyExecutable>>, Adaptor>::value ||
     std::is_base_of<std::queue<std::shared_ptr<AnyExecutable>>, Adaptor>::value ||
     std::is_base_of<std::stack<std::shared_ptr<AnyExecutable>>, Adaptor>::value,
-    "Adaptor must be a descendent of a queue, stack, or priority queue, and must use AnyExecutable \
-    Container, and Compare as its arguments"
+    "Adaptor must be a descendent of a queue, stack, or priority queue, and must use "
+    "AnyExecutable Container, and Compare as its arguments"
   );
-  static_assert(std::is_same<std::shared_ptr<AnyExecutable>, typename Adaptor::value_type>::value,
+  static_assert(
+    std::is_same<std::shared_ptr<AnyExecutable>, typename Adaptor::value_type>::value,
     "value_type of adaptor must be AnyExecutable");
 
   using VoidAllocTraits = typename allocator::AllocRebind<void *, Alloc>;

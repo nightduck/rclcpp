@@ -158,9 +158,10 @@ FixedPrioExecutor::spin()
   client_to_group_map.clear();
   service_to_group_map.clear();
   waitable_to_group_map.clear();
-  std::vector<rclcpp::CallbackGroup::WeakPtr> groups 
-        = entities_collector_->get_all_callback_groups();
-  std::for_each(groups.begin(), groups.end(),
+  std::vector<rclcpp::CallbackGroup::WeakPtr> groups =
+    entities_collector_->get_all_callback_groups();
+  std::for_each(
+    groups.begin(), groups.end(),
     [this](rclcpp::CallbackGroup::WeakPtr group_ptr) {
       auto group = group_ptr.lock();
       group->find_timer_ptrs_if(
