@@ -18,7 +18,10 @@
 #include <chrono>
 #include <memory>
 #include <mutex>
+#include <deque>
 #include <queue>
+#include <utility>
+#include <algorithm>
 #include <set>
 #include <thread>
 #include <type_traits>
@@ -33,12 +36,15 @@
 namespace rclcpp
 {
 
-namespace experimental {
+namespace experimental
+{
 
-class ComparePrio {
+class ComparePrio
+{
 public:
-  using eq = std::shared_ptr<std::deque<std::pair<int,std::shared_ptr<rclcpp::AnyExecutable>>>>;
-  bool operator()(const eq &lhs, const eq &rhs) const {
+  using eq = std::shared_ptr<std::deque<std::pair<int, std::shared_ptr<rclcpp::AnyExecutable>>>>;
+  bool operator()(const eq & lhs, const eq & rhs) const
+  {
     if (lhs->empty()) {
       return false;
     } else if (rhs->empty()) {
@@ -49,7 +55,8 @@ public:
   }
 };
 
-class CBG_Work {
+class CBG_Work
+{
 public:
   RCLCPP_SMART_PTR_DEFINITIONS(CBG_Work)
 
@@ -57,27 +64,30 @@ public:
   : priority(sched_get_priority_max(SCHED_FIFO)), heap(), sub_dict(), tmr_dict()
   {}
 
-  ~CBG_Work() {
+  ~CBG_Work()
+  {
     thread.join();
     sub_dict.clear();
     tmr_dict.clear();
     heap.clear();
   }
 
-  // TODO: Modify this when changing to rbtree of min-max heaps
+  // TODO(nightduck): Modify this when changing to rbtree of min-max heaps
   // Put exec in heap, and return true if success (log n, wc n on number of exec types in CBG)
-  bool add_work(rclcpp::AnyExecutable& exec, int prio) {
+  bool add_work(rclcpp::AnyExecutable & exec, int prio)
+  {
     {
       std::lock_guard<std::mutex> lk(mux);
 
-      std::shared_ptr<std::deque<std::pair<int,std::shared_ptr<rclcpp::AnyExecutable>>>> q = NULL;
+      std::shared_ptr<std::deque<std::pair<int, std::shared_ptr<rclcpp::AnyExecutable>>>> q = NULL;
       if (exec.subscription != NULL) {
         // Check if entry exist in dict
         auto h = sub_dict.find(exec.subscription);
         if (h == sub_dict.end()) {
           // If not, create empty deque, put it in dict
-          auto ret = sub_dict.emplace(exec.subscription,
-            std::make_shared<std::deque<std::pair<int,std::shared_ptr<rclcpp::AnyExecutable>>>>());
+          auto ret = sub_dict.emplace(
+            exec.subscription,
+            std::make_shared<std::deque<std::pair<int, std::shared_ptr<rclcpp::AnyExecutable>>>>());
           q = ret.first->second;
         } else {
           q = h->second;
@@ -87,8 +97,9 @@ public:
         auto h = tmr_dict.find(exec.timer);
         if (h == tmr_dict.end()) {
           // If not, create empty deque, put it in dict
-          auto ret = tmr_dict.emplace(exec.timer,
-            std::make_shared<std::deque<std::pair<int,std::shared_ptr<rclcpp::AnyExecutable>>>>());
+          auto ret = tmr_dict.emplace(
+            exec.timer,
+            std::make_shared<std::deque<std::pair<int, std::shared_ptr<rclcpp::AnyExecutable>>>>());
           q = ret.first->second;
         } else {
           q = h->second;
@@ -100,31 +111,33 @@ public:
       // If an entry for this exists (or was just created above), add this message to it (1)
       q->push_back({prio, std::make_shared<rclcpp::AnyExecutable>(exec)});
 
-      // NOTE/TODO: Priority inheritance for subscriptions? If they have to be executed in
-      // order, then they should be guaranteed to have uniform priority, or older messages
+      // NOTE/TODO(nightduck): Priority inheritance for subscriptions? If they have to be executed
+      // in order, then they should be guaranteed to have uniform priority, or older messages
       // should inherit priority of previous messages, maybe iterate through deque with a max
       // operation?
 
       // If the queue was empty before now, put it in the heap (log n, wc n)
-      if (q->size() == 1)
+      if (q->size() == 1) {
         heap.insert(q);
+      }
 
       priority = std::max(prio, priority);
     }
-    
+
     cond.notify_one();
     return true;
   }
 
-  // TODO: Modify this when changing to rbtree of min-max heaps
+  // TODO(nightduck): Modify this when changing to rbtree of min-max heaps
   // Replace running with most urgent task in heap. Update priority.
   // If no work is available, sleep on conditional lock until there is
   // (log n, wc n on number of exec types in CBG)
-  std::shared_ptr<rclcpp::AnyExecutable> get_work() {
+  std::shared_ptr<rclcpp::AnyExecutable> get_work()
+  {
     std::unique_lock<std::mutex> lk(mux);
 
     cond.wait(
-      lk, [this]{return !heap.empty();}
+      lk, [this] {return !heap.empty();}
     );
 
     priority = heap.begin()->get()->front().first;
@@ -146,7 +159,8 @@ public:
     // // Update queues
     // if (running->subscription != NULL) {
     //   auto h = sub_dict.find(running->subscription);
-    //   assert(h != sub_dict.end());  // If subscription has message in heap, then it should have at least an empty deque in the sub dictionary
+    //   assert(h != sub_dict.end());  // If subscription has message in heap, then it should have
+    //                                 //at least an empty deque in the sub dictionary
 
     //   if (!h->second->empty()) {
     //     // If deque isn't empty, put it back in heap. It won't necessarily go back to the top.
@@ -155,7 +169,8 @@ public:
     //   }
     // } else if (running->timer != NULL) {
     //   auto h = tmr_dict.find(running->timer);
-    //   assert(h != tmr_dict.end());  // If subscription has message in heap, then it should have at least an empty deque in the sub dictionary
+    //   assert(h != tmr_dict.end());  // If subscription has message in heap, then it should have
+    //                                 // at least an empty deque in the sub dictionary
 
     //   if (!h->second->empty()) {
     //     // If deque isn't empty, put it back in heap. It won't necessarily go back to the top.
@@ -179,27 +194,25 @@ public:
 
   std::shared_ptr<rclcpp::AnyExecutable> running;
 
-  // TODO: In future, this will be rbtree of min-max heaps, to enforce queue sizes on subs
-  //std::priority_queue<std::pair<int,std::shared_ptr<rclcpp::AnyExecutable>>> heap;
-
-  // TODO: This is a binary search tree. It won't always be balanced, but is necessary because
-  // rbtrees don't return equivalent nodes in order, ruining round-robin between subscriptions of
+  // TODO(nightduck): This is a binary search tree. It won't always be balanced, but is necessary
+  // becauserbtrees don't return equivalent nodes in order, ruining round-robin between subs of
   // equivalent priority. Find a data structure that maintains the benefits of BSTs and RBTs
-  std::multiset<std::shared_ptr<std::deque<std::pair<int,std::shared_ptr<rclcpp::AnyExecutable>>>>,
+  std::multiset<std::shared_ptr<std::deque<std::pair<int, std::shared_ptr<rclcpp::AnyExecutable>>>>,
     ComparePrio> heap;
 
   // Dictionaries of deques, representing backlogged work.
   std::unordered_map<rclcpp::SubscriptionBase::SharedPtr,
-      std::shared_ptr<std::deque<std::pair<int,std::shared_ptr<rclcpp::AnyExecutable>>>>> sub_dict;
-   std::unordered_map<rclcpp::TimerBase::SharedPtr,
-      std::shared_ptr<std::deque<std::pair<int,std::shared_ptr<rclcpp::AnyExecutable>>>>> tmr_dict;
+    std::shared_ptr<std::deque<std::pair<int, std::shared_ptr<rclcpp::AnyExecutable>>>>> sub_dict;
+  std::unordered_map<rclcpp::TimerBase::SharedPtr,
+    std::shared_ptr<std::deque<std::pair<int, std::shared_ptr<rclcpp::AnyExecutable>>>>> tmr_dict;
 };
 }  // namespace experimental
 
 namespace executors
 {
 
-// TODO: Enforce Adaptor uses correct parameters in its own template: https://www.informit.com/articles/article.aspx?p=376878
+// TODO(nightduck): Enforce Adaptor uses correct parameters in its own template:
+// https://www.informit.com/articles/article.aspx?p=376878
 class FixedPrioExecutor : public StaticSingleThreadedExecutor
 {
 public:
@@ -221,14 +234,14 @@ public:
    */
   RCLCPP_PUBLIC
   FixedPrioExecutor(
-    std::function<int(rclcpp::AnyExecutable)> predicate,
+    std::function<int(rclcpp::AnyExecutable)> predicate = [](rclcpp::AnyExecutable) {return 50;},
     const rclcpp::ExecutorOptions & options = rclcpp::ExecutorOptions(),
     bool yield_before_execute = false,
     std::chrono::nanoseconds timeout = std::chrono::nanoseconds(-1));
 
   RCLCPP_PUBLIC
   virtual ~FixedPrioExecutor();
-  
+
   /// Fixed priority executor implementation of spin.
   /**
    * This function will block until work comes in, execute it, and keep blocking.
@@ -274,11 +287,7 @@ public:
   void
   spin_all(std::chrono::nanoseconds max_duration) override;
 
-  RCLCPP_PUBLIC
-  size_t
-  get_number_of_threads();
-
-   /// Add a callback group to an executor.
+  /// Add a callback group to an executor.
   /**
    * \sa rclcpp::Executor::add_callback_group
    */
@@ -298,7 +307,7 @@ public:
   add_node(
     rclcpp::node_interfaces::NodeBaseInterface::SharedPtr node_ptr,
     bool notify = true) override;
-  
+
   /// Convenience function which takes Node and forwards NodeBaseInterface.
   /**
    * \sa rclcpp::StaticSingleThreadedExecutor::add_node
@@ -331,7 +340,9 @@ protected:
 
   RCLCPP_PUBLIC
   bool
-  get_subscription_message(std::shared_ptr<void> &message, SubscriptionBase::SharedPtr subscription);
+  get_subscription_message(
+    std::shared_ptr<void> & message,
+    SubscriptionBase::SharedPtr subscription);
 
   RCLCPP_PUBLIC
   void
@@ -352,35 +363,22 @@ protected:
 private:
   RCLCPP_DISABLE_COPY(FixedPrioExecutor)
 
-  // // TODO: Custom allocator here to avoid dynamic memory operations?
-  // typedef std::queue<rclcpp::AnyExecutable>
-  //   ReleasedWorkQueue;
-
-  // ReleasedWorkQueue
-  // released_work_ RCPPUTILS_TSA_GUARDED_BY(mutex_);
-
-  // // TODO: This just hide the base member, which will still be used by all methods not overriden
-  // /// The memory strategy: an interface for handling user-defined memory allocation strategies.
-  // memory_strategies::allocator_memory_strategy::PrefetchMemoryStrategy<std::allocator<void>>
-  // memory_strategy_ RCPPUTILS_TSA_PT_GUARDED_BY(mutex_);
-
   std::mutex wait_mutex_;
-  size_t number_of_threads_;
   bool yield_before_execute_;
   std::chrono::nanoseconds next_exec_timeout_;
   std::unordered_map<rclcpp::CallbackGroup::SharedPtr, rclcpp::experimental::CBG_Work::SharedPtr>
-      cbg_threads;
+  cbg_threads;
 
   std::unordered_map<rclcpp::SubscriptionBase::SharedPtr, rclcpp::CallbackGroup::WeakPtr>
-      sub_to_group_map;
+  sub_to_group_map;
   std::unordered_map<rclcpp::TimerBase::SharedPtr, rclcpp::CallbackGroup::WeakPtr>
-      tmr_to_group_map;
+  tmr_to_group_map;
   std::unordered_map<rclcpp::ClientBase::SharedPtr, rclcpp::CallbackGroup::WeakPtr>
-      client_to_group_map;
+  client_to_group_map;
   std::unordered_map<rclcpp::ServiceBase::SharedPtr, rclcpp::CallbackGroup::WeakPtr>
-      service_to_group_map;
+  service_to_group_map;
   std::unordered_map<rclcpp::Waitable::SharedPtr, rclcpp::CallbackGroup::WeakPtr>
-      waitable_to_group_map;
+  waitable_to_group_map;
 
   std::function<int(rclcpp::AnyExecutable)> prio_function;
 };

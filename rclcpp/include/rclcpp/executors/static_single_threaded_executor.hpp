@@ -214,7 +214,6 @@ protected:
 
 private:
   RCLCPP_DISABLE_COPY(StaticSingleThreadedExecutor)
-
 };
 
 }  // namespace executors
