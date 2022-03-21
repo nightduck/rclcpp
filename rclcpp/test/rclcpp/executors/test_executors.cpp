@@ -92,7 +92,8 @@ using ExecutorTypes =
   ::testing::Types<
   rclcpp::executors::SingleThreadedExecutor,
   rclcpp::executors::MultiThreadedExecutor,
-  rclcpp::executors::StaticSingleThreadedExecutor>;
+  rclcpp::executors::StaticSingleThreadedExecutor,
+  rclcpp::executors::FixedPrioExecutor>;
 
 class ExecutorTypeNames
 {
@@ -111,6 +112,10 @@ public:
 
     if (std::is_same<T, rclcpp::executors::StaticSingleThreadedExecutor>()) {
       return "StaticSingleThreadedExecutor";
+    }
+
+    if (std::is_same<T, rclcpp::executors::FixedPrioExecutor>()) {
+      return "FixedPriorityExecutor";
     }
 
     return "";

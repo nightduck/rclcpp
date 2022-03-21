@@ -41,12 +41,6 @@ FixedPrioExecutor::FixedPrioExecutor(
 FixedPrioExecutor::~FixedPrioExecutor()
 {}
 
-size_t
-FixedPrioExecutor::get_number_of_threads()
-{
-  return number_of_threads_;
-}
-
 void
 FixedPrioExecutor::spin()
 {
@@ -67,9 +61,10 @@ FixedPrioExecutor::spin()
   client_to_group_map.clear();
   service_to_group_map.clear();
   waitable_to_group_map.clear();
-  std::vector<rclcpp::CallbackGroup::WeakPtr> groups 
-        = entities_collector_->get_all_callback_groups();
-  std::for_each(groups.begin(), groups.end(),
+  std::vector<rclcpp::CallbackGroup::WeakPtr> groups =
+    entities_collector_->get_all_callback_groups();
+  std::for_each(
+    groups.begin(), groups.end(),
     [this](rclcpp::CallbackGroup::WeakPtr group_ptr) {
       auto group = group_ptr.lock();
       group->find_timer_ptrs_if(
@@ -132,7 +127,7 @@ FixedPrioExecutor::spin_some(std::chrono::nanoseconds max_duration)
 void
 FixedPrioExecutor::spin_all(std::chrono::nanoseconds max_duration)
 {
-  if (max_duration <= std::chrono::nanoseconds(0)) {
+  if (max_duration <= 0ns) {
     throw std::invalid_argument("max_duration must be positive");
   }
   return this->spin_some_impl(max_duration, true);
@@ -142,7 +137,7 @@ void
 FixedPrioExecutor::spin_some_impl(std::chrono::nanoseconds max_duration, bool exhaustive)
 {
   // Make sure the entities collector has been initialized
-    if (!entities_collector_->is_init()) {
+  if (!entities_collector_->is_init()) {
     entities_collector_->init(&wait_set_, memory_strategy_);
   }
 
@@ -176,7 +171,8 @@ FixedPrioExecutor::spin_some_impl(std::chrono::nanoseconds max_duration, bool ex
 }
 
 void
-FixedPrioExecutor::allocate_cbg_resources(rclcpp::CallbackGroup::SharedPtr cbg) {
+FixedPrioExecutor::allocate_cbg_resources(rclcpp::CallbackGroup::SharedPtr cbg)
+{
   // Create thread and data for it to operate on. If allowed to run, it'll immediately sleep
   auto cw = std::make_shared<rclcpp::experimental::CBG_Work>();
   cw->thread = std::thread(std::bind(&FixedPrioExecutor::run, this, _1), cw);
@@ -188,8 +184,6 @@ FixedPrioExecutor::allocate_cbg_resources(rclcpp::CallbackGroup::SharedPtr cbg) 
 
   std::lock_guard<std::mutex> lk(wait_mutex_);
   cbg_threads.emplace(cbg, cw);
-
-  return;
 }
 
 void
@@ -198,7 +192,7 @@ FixedPrioExecutor::add_callback_group(
   rclcpp::node_interfaces::NodeBaseInterface::SharedPtr node_ptr,
   bool notify)
 {
-  if(group_ptr->type() != rclcpp::CallbackGroupType::MutuallyExclusive) {
+  if (group_ptr->type() != rclcpp::CallbackGroupType::MutuallyExclusive) {
     printf("ERROR: Executor only supports mutually exclusive executors at the moment\n");
     return;
   }
@@ -219,10 +213,13 @@ FixedPrioExecutor::add_node(
   );
   if (is_reentrant) {
     printf("ERROR: Executor only supports mutually exclusive executors at the moment\n");
-    return;
+    throw rclcpp::exceptions::InvalidNodeError();
   }
 
-  node_ptr->for_each_callback_group(std::bind(&FixedPrioExecutor::allocate_cbg_resources, this, _1));
+  node_ptr->for_each_callback_group(
+    std::bind(
+      &FixedPrioExecutor::allocate_cbg_resources, this,
+      _1));
 
   StaticSingleThreadedExecutor::add_node(node_ptr, notify);
 }
@@ -238,15 +235,15 @@ void
 FixedPrioExecutor::run(rclcpp::experimental::CBG_Work::SharedPtr work)
 {
   do {
-    // TODO: Make some way for below function to unblock when stopped spinning
+    // TODO(nightduck): Make some way for below function to unblock when stopped spinning
     auto exec = work->get_work();
 
     pthread_setschedprio(work->thread.native_handle(), work->priority);
 
     if (exec->timer) {
-    TRACEPOINT(
-      rclcpp_executor_execute,
-      static_cast<const void *>(exec->timer->get_timer_handle().get()));
+      TRACEPOINT(
+        rclcpp_executor_execute,
+        static_cast<const void *>(exec->timer->get_timer_handle().get()));
       exec->timer->execute_callback();
     }
     if (exec->subscription) {
@@ -264,10 +261,12 @@ FixedPrioExecutor::run(rclcpp::experimental::CBG_Work::SharedPtr work)
         rcl_ret_t ret = rcl_return_loaned_message_from_subscription(
           exec->subscription->get_subscription_handle().get(), exec->data.get());
         if (RCL_RET_OK != ret) {
-        RCLCPP_ERROR(
-          rclcpp::get_logger("rclcpp"),
-          "rcl_return_loaned_message_from_subscription() failed for subscription on topic '%s': %s",
-          exec->subscription->get_topic_name(), rcl_get_error_string().str);
+          RCLCPP_ERROR(
+            rclcpp::get_logger(
+              "rclcpp"),
+            "rcl_return_loaned_message_from_subscription() failed for subscription on topic "
+            "'%s': %s",
+            exec->subscription->get_topic_name(), rcl_get_error_string().str);
         }
         exec->data = nullptr;
       } else {
@@ -293,7 +292,7 @@ bool
 FixedPrioExecutor::execute_ready_executables(bool spin_once)
 {
   bool any_ready_executable = false;
-  
+
   // Put all the ready subscriptions and the messages into the correct thread
   for (size_t i = 0; i < wait_set_.size_of_subscriptions; ++i) {
     if (i < entities_collector_->get_number_of_subscriptions()) {
@@ -361,8 +360,9 @@ FixedPrioExecutor::execute_ready_executables(bool spin_once)
 
 bool
 FixedPrioExecutor::get_subscription_message(
-  std::shared_ptr<void> &message,
-  rclcpp::SubscriptionBase::SharedPtr subscription) {
+  std::shared_ptr<void> & message,
+  rclcpp::SubscriptionBase::SharedPtr subscription)
+{
   rclcpp::MessageInfo message_info;
   message_info.get_rmw_message_info().from_intra_process = false;
 
@@ -386,18 +386,18 @@ FixedPrioExecutor::get_subscription_message(
     void * loaned_msg = nullptr;
     try {
       rcl_ret_t ret = rcl_take_loaned_message(
-          subscription->get_subscription_handle().get(),
-          &loaned_msg,
-          &message_info.get_rmw_message_info(),
-          nullptr);
+        subscription->get_subscription_handle().get(),
+        &loaned_msg,
+        &message_info.get_rmw_message_info(),
+        nullptr);
       if (RCL_RET_SUBSCRIPTION_TAKE_FAILED == ret) {
-          return false;
+        return false;
       } else if (RCL_RET_OK != ret) {
         rclcpp::exceptions::throw_from_rcl_error(ret);
       }
-      message.reset(&loaned_msg);    // TODO: This might be bad. After returning, the shared_ptr is
-                                    //       destroyed, deleting the loaned message. Maybe give it
-                                    //       a pointer to a pointer, like above
+      message.reset(&loaned_msg);   // TODO(nightduck): This might be bad. After returning, the
+                                    // shared_ptr is destroyed, deleting the loaned message.
+                                    // Maybe give it a pointer to a pointer, like above
       return true;
     } catch (const rclcpp::exceptions::RCLError & rcl_error) {
       RCLCPP_ERROR(
@@ -432,13 +432,13 @@ FixedPrioExecutor::execute_subscription(rclcpp::SubscriptionBase::SharedPtr subs
   // Fetch all messages awaiting this subscription
   std::shared_ptr<void> msg;
 
-  while(get_subscription_message(msg, subscription)) { // && msg != nullptr ???
+  while (get_subscription_message(msg, subscription)) {  // && msg != nullptr ???
     rclcpp::AnyExecutable ae = rclcpp::AnyExecutable();
     ae.subscription = subscription;
     ae.callback_group = group;
     ae.node_base = memory_strategy_->get_node_by_group(group, weak_groups_to_nodes_);
     ae.data = msg;
-    
+
     // Get priority and add it to thread
     int prio = prio_function(ae);
     cbg_threads[group]->add_work(ae, prio);
@@ -446,7 +446,8 @@ FixedPrioExecutor::execute_subscription(rclcpp::SubscriptionBase::SharedPtr subs
 }
 
 void
-FixedPrioExecutor::execute_timer(rclcpp::TimerBase::SharedPtr timer) {
+FixedPrioExecutor::execute_timer(rclcpp::TimerBase::SharedPtr timer)
+{
   // Find the group for this handle and see if it can be serviced
   auto group = tmr_to_group_map.at(timer).lock();
 
@@ -462,16 +463,17 @@ FixedPrioExecutor::execute_timer(rclcpp::TimerBase::SharedPtr timer) {
 }
 
 void
-FixedPrioExecutor::execute_service(rclcpp::ServiceBase::SharedPtr service) {
+FixedPrioExecutor::execute_service(rclcpp::ServiceBase::SharedPtr service)
+{
   // Find the group for this handle and see if it can be serviced
   auto group = service_to_group_map.at(service).lock();
-  
+
   // Otherwise it is safe to set and return the any_exec
   // Fetch all messages awaiting this service
   auto request_header = service->create_request_header();
   std::shared_ptr<void> request = service->create_request();
-  
-  while(service->take_type_erased_request(request.get(), *request_header)) {
+
+  while (service->take_type_erased_request(request.get(), *request_header)) {
     rclcpp::AnyExecutable ae = rclcpp::AnyExecutable();
     ae.service = service;
     ae.callback_group = group;
@@ -485,7 +487,8 @@ FixedPrioExecutor::execute_service(rclcpp::ServiceBase::SharedPtr service) {
 }
 
 void
-FixedPrioExecutor::execute_client(rclcpp::ClientBase::SharedPtr client) {
+FixedPrioExecutor::execute_client(rclcpp::ClientBase::SharedPtr client)
+{
   // Find the group for this handle and see if it can be serviced
   auto group = client_to_group_map.at(client).lock();
 
@@ -493,8 +496,8 @@ FixedPrioExecutor::execute_client(rclcpp::ClientBase::SharedPtr client) {
   // Fetch all messages awaiting this client
   auto request_header = client->create_request_header();
   std::shared_ptr<void> response = client->create_response();
-  
-  while(client->take_type_erased_response(response.get(), *request_header)) {
+
+  while (client->take_type_erased_response(response.get(), *request_header)) {
     rclcpp::AnyExecutable ae = rclcpp::AnyExecutable();
     ae.client = client;
     ae.callback_group = group;
