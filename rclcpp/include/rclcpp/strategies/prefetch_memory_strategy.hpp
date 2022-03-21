@@ -51,9 +51,9 @@ namespace prefetch_memory_strategy
 template<
   typename Alloc = std::allocator<void>,
   typename Adaptor = std::priority_queue<std::shared_ptr<AnyExecutable>>
-  >
+>
 class PrefetchMemoryStrategy
-    : public memory_strategy::MemoryStrategy
+  : public memory_strategy::MemoryStrategy
 {
 public:
   RCLCPP_SMART_PTR_DEFINITIONS(PrefetchMemoryStrategy)
@@ -63,10 +63,11 @@ public:
     std::is_base_of<std::priority_queue<std::shared_ptr<AnyExecutable>>, Adaptor>::value ||
     std::is_base_of<std::queue<std::shared_ptr<AnyExecutable>>, Adaptor>::value ||
     std::is_base_of<std::stack<std::shared_ptr<AnyExecutable>>, Adaptor>::value,
-    "Adaptor must be a descendent of a queue, stack, or priority queue, and must use AnyExecutable \
-    Container, and Compare as its arguments"
+    "Adaptor must be a descendent of a queue, stack, or priority queue, and must use "
+    "AnyExecutable Container, and Compare as its arguments"
   );
-  static_assert(std::is_same<std::shared_ptr<AnyExecutable>, typename Adaptor::value_type>::value,
+  static_assert(
+    std::is_same<std::shared_ptr<AnyExecutable>, typename Adaptor::value_type>::value,
     "value_type of adaptor must be AnyExecutable");
 
   using VoidAllocTraits = typename allocator::AllocRebind<void *, Alloc>;
@@ -76,16 +77,16 @@ public:
   {
     allocator_ = std::make_shared<VoidAlloc>(*allocator.get());
     assigned_work_.resize(num_workers);
-    for(int i = 0; i < num_workers; i++) {
+    for (int i = 0; i < num_workers; i++) {
       assigned_work_.push_back(std::queue<std::shared_ptr<AnyExecutable>>());
     }
   }
 
-  PrefetchMemoryStrategy(size_t num_workers = 0)
+  explicit PrefetchMemoryStrategy(size_t num_workers = 0)
   {
     allocator_ = std::make_shared<VoidAlloc>();
     assigned_work_.resize(num_workers);
-    for(int i = 0; i < num_workers; i++) {
+    for (int i = 0; i < num_workers; i++) {
       assigned_work_.push_back(std::queue<std::shared_ptr<AnyExecutable>>());
     }
   }
@@ -527,7 +528,7 @@ public:
       it = waitable_handles_.erase(it);
     }
   }
-  
+
   rcl_allocator_t get_allocator() override
   {
     return rclcpp::allocator::get_rcl_allocator<void *, VoidAlloc>(*allocator_.get());
@@ -536,10 +537,11 @@ public:
   bool
   get_subscription_message(
     std::shared_ptr<void> message,
-    rclcpp::SubscriptionBase::SharedPtr subscription) {
+    rclcpp::SubscriptionBase::SharedPtr subscription)
+  {
     rclcpp::MessageInfo message_info;
     message_info.get_rmw_message_info().from_intra_process = false;
-  
+
     if (subscription->is_serialized()) {
       auto serial_message = subscription->create_serialized_message();
       try {
@@ -560,18 +562,18 @@ public:
       void * loaned_msg = nullptr;
       try {
         rcl_ret_t ret = rcl_take_loaned_message(
-            subscription->get_subscription_handle().get(),
-            &loaned_msg,
-            &message_info.get_rmw_message_info(),
-            nullptr);
+          subscription->get_subscription_handle().get(),
+          &loaned_msg,
+          &message_info.get_rmw_message_info(),
+          nullptr);
         if (RCL_RET_SUBSCRIPTION_TAKE_FAILED == ret) {
-            return false;
+          return false;
         } else if (RCL_RET_OK != ret) {
           rclcpp::exceptions::throw_from_rcl_error(ret);
         }
-        message.reset(&loaned_msg);    // TODO: This might be bad. After returning, the shared_ptr is
-                                      //       destroyed, deleting the loaned message. Maybe give it
-                                      //       a pointer to a pointer, like above
+        message.reset(&loaned_msg);   // TODO(nightduck): This might be bad. After returning, the
+                                      // shared_ptr is destroyed, deleting the loaned message. Maybe
+                                      // give it a pointer to a pointer, like above
         return true;
       } catch (const rclcpp::exceptions::RCLError & rcl_error) {
         RCLCPP_ERROR(
@@ -602,9 +604,10 @@ public:
   get_next_executable(
     rclcpp::AnyExecutable & any_exec,
     size_t worker_id
-  ) {
-    // TODO: Make atomic
-    // TODO: As is, it does not consider weak_groups_to_nodes
+  )
+  {
+    // TODO(nightduck): Make atomic
+    // TODO(nightduck): As is, it does not consider weak_groups_to_nodes
 
     // If this worker was given work, check that first
     if (!assigned_work_[worker_id].empty()) {
@@ -618,7 +621,7 @@ public:
     while (!released_work_.empty() && !can_run(*released_work_.top())) {
       std::shared_ptr<AnyExecutable> top_ae = released_work_.top();
 
-      for(int i = 0; i < running_work.size(); i++) {
+      for (int i = 0; i < running_work.size(); i++) {
         if (running_work[i]->callback_group == top_ae->callback_group) {
           assigned_work_[i].push(top_ae);
           released_work_.pop();
@@ -627,7 +630,7 @@ public:
       }
 
       // If the work couldn't run, it should now be assigned to whoever was blocking it
-      assert(top_ae != released_work_.top());   // TODO: This might be undefined if empty
+      assert(top_ae != released_work_.top());   // TODO(nightduck): This might be undefined if empty
     }
 
     // If there's tasks left, they can be run
@@ -640,12 +643,12 @@ public:
     }
   }
 
-  // TODO: Add overloaded version which takes reference to container and Functor for filtering.
-  //       Useful for decentralized planning
+  // TODO(nightduck): Add overloaded version which takes reference to container and Functor for
+  // filtering. Useful for decentralized planning
   void
   collect_work(
     const WeakCallbackGroupsToNodesMap & weak_groups_to_nodes
-    )
+  )
   {
     {
       // Get all subscriptions and their messages
@@ -665,7 +668,7 @@ public:
           // Fetch all messages awaiting this subscription
           std::shared_ptr<void> msg;
 
-          while(get_subscription_message(msg, subscription)) { // && msg != nullptr ???
+          while (get_subscription_message(msg, subscription)) {  // && msg != nullptr ???
             std::shared_ptr<rclcpp::AnyExecutable> ae = std::make_shared<rclcpp::AnyExecutable>();
             ae->subscription = subscription;
             ae->callback_group = group;
@@ -706,7 +709,7 @@ public:
           ae->callback_group = group;
           ae->node_base = get_node_by_group(group, weak_groups_to_nodes);
           released_work_.push(ae);
-          
+
           timer_handles_.erase(it);
         }
         // Else, the timer is no longer valid, remove it and continue
@@ -732,8 +735,8 @@ public:
           // Fetch all messages awaiting this service
           auto request_header = service->create_request_header();
           std::shared_ptr<void> request = service->create_request();
-          
-          while(service->take_type_erased_request(request.get(), *request_header)) {
+
+          while (service->take_type_erased_request(request.get(), *request_header)) {
             std::shared_ptr<rclcpp::AnyExecutable> ae = std::make_shared<rclcpp::AnyExecutable>();
             ae->service = service;
             ae->callback_group = group;
@@ -766,8 +769,8 @@ public:
           // Fetch all messages awaiting this client
           auto request_header = client->create_request_header();
           std::shared_ptr<void> response = client->create_response();
-          
-          while(client->take_type_erased_response(response.get(), *request_header)) {\
+
+          while (client->take_type_erased_response(response.get(), *request_header)) { \
             std::shared_ptr<rclcpp::AnyExecutable> ae = std::make_shared<rclcpp::AnyExecutable>();
             ae->client = client;
             ae->callback_group = group;
@@ -812,17 +815,17 @@ public:
     }
   }
 
-  bool can_run(const AnyExecutable& any_exec) {
+  bool can_run(const AnyExecutable & any_exec)
+  {
     return any_exec.callback_group->can_be_taken_from().load();
   }
 
 protected:
   Adaptor released_work_;
 
-  // TODO: Incorporate this into generics
+  // TODO(nightduck): Incorporate this into generics
   std::vector<std::queue<std::shared_ptr<AnyExecutable>>> assigned_work_;
   std::vector<std::shared_ptr<AnyExecutable>> running_work;
-
 
 private:
   template<typename T>
@@ -841,11 +844,11 @@ private:
   std::shared_ptr<VoidAlloc> allocator_;
 
   template<typename T>
-  void do_nothing(T t) const { return; }
+  void do_nothing(T t) const {}
 };
 
 }  // namespace prefetch_memory_strategy
 }  // namespace memory_strategies
 }  // namespace rclcpp
 
-#endif  // RCLCPP__STRATEGIES__ALLOCATOR_MEMORY_STRATEGY_HPP_
+#endif  // RCLCPP__STRATEGIES__PREFETCH_MEMORY_STRATEGY_HPP_
