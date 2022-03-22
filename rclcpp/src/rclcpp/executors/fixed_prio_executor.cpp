@@ -42,19 +42,8 @@ FixedPrioExecutor::~FixedPrioExecutor()
 {}
 
 void
-FixedPrioExecutor::spin()
+FixedPrioExecutor::map_execs_to_groups()
 {
-  if (spinning.exchange(true)) {
-    throw std::runtime_error("spin() called while already spinning");
-  }
-  RCPPUTILS_SCOPE_EXIT(this->spinning.store(false); );
-
-  // Set memory_strategy_ and exec_list_ based on weak_nodes_
-  // Prepare wait_set_ based on memory_strategy_
-  if (!entities_collector_->is_init()) {
-    entities_collector_->init(&wait_set_, memory_strategy_);
-  }
-
   // Make mapping between executables and callback groups
   sub_to_group_map.clear();
   tmr_to_group_map.clear();
@@ -103,8 +92,23 @@ FixedPrioExecutor::spin()
           return false;
         });
     });
+}
 
-  auto clock = rclcpp::Clock();
+void
+FixedPrioExecutor::spin()
+{
+  if (spinning.exchange(true)) {
+    throw std::runtime_error("spin() called while already spinning");
+  }
+  RCPPUTILS_SCOPE_EXIT(this->spinning.store(false); );
+
+  // Set memory_strategy_ and exec_list_ based on weak_nodes_
+  // Prepare wait_set_ based on memory_strategy_
+  if (!entities_collector_->is_init()) {
+    entities_collector_->init(&wait_set_, memory_strategy_);
+  }
+
+  map_execs_to_groups();
 
   while (rclcpp::ok(this->context_) && spinning.load()) {
     // Refresh wait set and wait for work
@@ -158,6 +162,8 @@ FixedPrioExecutor::spin_some_impl(std::chrono::nanoseconds max_duration, bool ex
     throw std::runtime_error("spin_some() called while already spinning");
   }
   RCPPUTILS_SCOPE_EXIT(this->spinning.store(false); );
+
+  map_execs_to_groups();
 
   while (rclcpp::ok(context_) && spinning.load() && max_duration_not_elapsed()) {
     // Get executables that are ready now
