@@ -328,6 +328,10 @@ protected:
 
   RCLCPP_PUBLIC
   void
+  map_execs_to_groups();
+
+  RCLCPP_PUBLIC
+  void
   spin_some_impl(std::chrono::nanoseconds max_duration, bool exhaustive);
 
   RCLCPP_PUBLIC

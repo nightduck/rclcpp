@@ -43,62 +43,62 @@ constexpr std::chrono::milliseconds PERIOD_MS = 1000ms;
 constexpr double PERIOD = PERIOD_MS.count() / 1000.0;
 constexpr double TOLERANCE = PERIOD / 4.0;
 
-/*
-   Test that timers are not taken multiple times when using reentrant callback groups.
- */
-TEST_F(TestRTExecutors, timer_over_take) {
-#ifdef __linux__
-  // This seems to be the most effective way to force the bug to happen on Linux.
-  // This is unnecessary on MacOS, since the default scheduler causes it.
-  struct sched_param param;
-  param.sched_priority = 0;
-  if (sched_setscheduler(0, SCHED_BATCH, &param) != 0) {
-    perror("sched_setscheduler");
-  }
-#endif
+// /*
+//    Test that timers are not taken multiple times when using reentrant callback groups.
+//  */
+// TEST_F(TestRTExecutors, timer_over_take) {
+// #ifdef __linux__
+//   // This seems to be the most effective way to force the bug to happen on Linux.
+//   // This is unnecessary on MacOS, since the default scheduler causes it.
+//   struct sched_param param;
+//   param.sched_priority = 0;
+//   if (sched_setscheduler(0, SCHED_BATCH, &param) != 0) {
+//     perror("sched_setscheduler");
+//   }
+// #endif
 
-  bool yield_before_execute = true;
+//   bool yield_before_execute = true;
 
-  rclcpp::executors::FixedPrioExecutor executor([](rclcpp::AnyExecutable) {return 50;});
+//   rclcpp::executors::FixedPrioExecutor executor([](rclcpp::AnyExecutable) {return 50;});
 
-  std::shared_ptr<rclcpp::Node> node =
-    std::make_shared<rclcpp::Node>("test_multi_threaded_executor_timer_over_take");
+//   std::shared_ptr<rclcpp::Node> node =
+//     std::make_shared<rclcpp::Node>("test_multi_threaded_executor_timer_over_take");
 
-  auto cbg = node->create_callback_group(rclcpp::CallbackGroupType::Reentrant);
+//   auto cbg = node->create_callback_group(rclcpp::CallbackGroupType::Reentrant);
 
-  rclcpp::Clock system_clock(RCL_STEADY_TIME);
-  std::mutex last_mutex;
-  auto last = system_clock.now();
+//   rclcpp::Clock system_clock(RCL_STEADY_TIME);
+//   std::mutex last_mutex;
+//   auto last = system_clock.now();
 
-  std::atomic_int timer_count {0};
+//   std::atomic_int timer_count {0};
 
-  auto timer_callback = [&timer_count, &executor, &system_clock, &last_mutex, &last]() {
-      // While this tolerance is a little wide, if the bug occurs, the next step will
-      // happen almost instantly. The purpose of this test is not to measure the jitter
-      // in timers, just assert that a reasonable amount of time has passed.
-      rclcpp::Time now = system_clock.now();
-      timer_count++;
+//   auto timer_callback = [&timer_count, &executor, &system_clock, &last_mutex, &last]() {
+//       // While this tolerance is a little wide, if the bug occurs, the next step will
+//       // happen almost instantly. The purpose of this test is not to measure the jitter
+//       // in timers, just assert that a reasonable amount of time has passed.
+//       rclcpp::Time now = system_clock.now();
+//       timer_count++;
 
-      if (timer_count > 5) {
-        executor.cancel();
-      }
+//       if (timer_count > 5) {
+//         executor.cancel();
+//       }
 
-      {
-        std::lock_guard<std::mutex> lock(last_mutex);
-        double diff = static_cast<double>(std::abs((now - last).nanoseconds())) / 1.0e9;
-        last = now;
+//       {
+//         std::lock_guard<std::mutex> lock(last_mutex);
+//         double diff = static_cast<double>(std::abs((now - last).nanoseconds())) / 1.0e9;
+//         last = now;
 
-        if (diff < PERIOD - TOLERANCE) {
-          executor.cancel();
-          ASSERT_GT(diff, PERIOD - TOLERANCE);
-        }
-      }
-    };
+//         if (diff < PERIOD - TOLERANCE) {
+//           executor.cancel();
+//           ASSERT_GT(diff, PERIOD - TOLERANCE);
+//         }
+//       }
+//     };
 
-  auto timer = node->create_wall_timer(PERIOD_MS, timer_callback, cbg);
-  executor.add_node(node);
-  executor.spin();
-}
+//   auto timer = node->create_wall_timer(PERIOD_MS, timer_callback, cbg);
+//   executor.add_node(node);
+//   executor.spin();
+// }
 
 // TEST_F(TestRTExecutors, subscription_spam) {
 //   rclcpp::executors::FixedPrioExecutor executor([](rclcpp::AnyExecutable){return 50;});
