@@ -61,12 +61,14 @@ public:
   RCLCPP_SMART_PTR_DEFINITIONS(CBG_Work)
 
   CBG_Work()
-  : priority(sched_get_priority_max(SCHED_FIFO)), heap(), sub_dict(), tmr_dict()
+  : priority(sched_get_priority_max(SCHED_FIFO)), heap(), sub_dict(), tmr_dict(), wait_dict()
   {}
 
   ~CBG_Work()
   {
-    thread.join();
+    if (thread.joinable()) {
+      stop_thread();
+    }
     sub_dict.clear();
     tmr_dict.clear();
     heap.clear();
@@ -99,6 +101,22 @@ public:
           // If not, create empty deque, put it in dict
           auto ret = tmr_dict.emplace(
             exec.timer,
+            std::make_shared<std::deque<std::pair<int, std::shared_ptr<rclcpp::AnyExecutable>>>>());
+          q = ret.first->second;
+        } else {
+          q = h->second;
+        }
+      } else if (exec.client != NULL) {
+        assert(false);
+      } else if (exec.service != NULL) {
+        assert(false);
+      } else if (exec.waitable != NULL) {
+        // Check if entry exist in dict, if not, create an entry for it
+        auto h = wait_dict.find(exec.waitable);
+        if (h == wait_dict.end()) {
+          // If not, create empty deque, put it in dict
+          auto ret = wait_dict.emplace(
+            exec.waitable,
             std::make_shared<std::deque<std::pair<int, std::shared_ptr<rclcpp::AnyExecutable>>>>());
           q = ret.first->second;
         } else {
@@ -137,8 +155,12 @@ public:
     std::unique_lock<std::mutex> lk(mux);
 
     cond.wait(
-      lk, [this] {return !heap.empty();}
+      lk, [this] {return !heap.empty() || stopped;}
     );
+
+    if (stopped) {
+      return nullptr;
+    }
 
     priority = heap.begin()->get()->front().first;
     running = heap.begin()->get()->front().second;
@@ -186,16 +208,29 @@ public:
     return running;
   }
 
+  void stop_thread()
+  {
+    stopped = true;
+    cond.notify_one();
+    thread.join();
+
+    running = nullptr;
+  }
+
   std::mutex mux;
   std::condition_variable cond;
   std::thread thread;
+
+  bool stopped = false;
 
   int priority;
 
   std::shared_ptr<rclcpp::AnyExecutable> running;
 
+  // TODO(nightduck): Replace deque with minmax heap, so messages can execute out of order
+
   // TODO(nightduck): This is a binary search tree. It won't always be balanced, but is necessary
-  // becauserbtrees don't return equivalent nodes in order, ruining round-robin between subs of
+  // because rbtrees don't return equivalent nodes in order, ruining round-robin between subs of
   // equivalent priority. Find a data structure that maintains the benefits of BSTs and RBTs
   std::multiset<std::shared_ptr<std::deque<std::pair<int, std::shared_ptr<rclcpp::AnyExecutable>>>>,
     ComparePrio> heap;
@@ -205,6 +240,8 @@ public:
     std::shared_ptr<std::deque<std::pair<int, std::shared_ptr<rclcpp::AnyExecutable>>>>> sub_dict;
   std::unordered_map<rclcpp::TimerBase::SharedPtr,
     std::shared_ptr<std::deque<std::pair<int, std::shared_ptr<rclcpp::AnyExecutable>>>>> tmr_dict;
+  std::unordered_map<rclcpp::Waitable::SharedPtr,
+    std::shared_ptr<std::deque<std::pair<int, std::shared_ptr<rclcpp::AnyExecutable>>>>> wait_dict;
 };
 }  // namespace experimental
 
