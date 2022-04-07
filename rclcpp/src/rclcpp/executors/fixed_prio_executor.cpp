@@ -39,7 +39,17 @@ FixedPrioExecutor::FixedPrioExecutor(
 }
 
 FixedPrioExecutor::~FixedPrioExecutor()
-{}
+{
+  for (auto cbg : cbg_threads) {
+    cbg.second->stop_thread();
+  }
+  cbg_threads.clear();
+  sub_to_group_map.clear();
+  tmr_to_group_map.clear();
+  client_to_group_map.clear();
+  service_to_group_map.clear();
+  waitable_to_group_map.clear();
+}
 
 void
 FixedPrioExecutor::map_execs_to_groups()
@@ -236,14 +246,12 @@ FixedPrioExecutor::add_node(std::shared_ptr<rclcpp::Node> node_ptr, bool notify)
   this->add_node(node_ptr->get_node_base_interface(), notify);
 }
 
-
 void
 FixedPrioExecutor::run(rclcpp::experimental::CBG_Work::SharedPtr work)
 {
-  do {
-    // TODO(nightduck): Make some way for below function to unblock when stopped spinning
-    auto exec = work->get_work();
+  auto exec = work->get_work();
 
+  while (rclcpp::ok(this->context_) && spinning.load() && exec != nullptr) {
     pthread_setschedprio(work->thread.native_handle(), work->priority);
 
     if (exec->timer) {
@@ -291,7 +299,9 @@ FixedPrioExecutor::run(rclcpp::experimental::CBG_Work::SharedPtr work)
     }
 
     pthread_setschedprio(work->thread.native_handle(), sched_get_priority_max(SCHED_FIFO));
-  } while (rclcpp::ok(this->context_) && spinning.load());
+
+    exec = work->get_work();
+  }
 }
 
 bool
