@@ -268,14 +268,14 @@ public:
    */
   RCLCPP_PUBLIC
   FixedPrioExecutor(
-    std::function<int(rclcpp::AnyExecutable)> predicate = [](rclcpp::AnyExecutable) {return 50;},
+    std::function<int(rclcpp::AnyExecutable)> predicate = [] (rclcpp::AnyExecutable) {return 50;},
     const rclcpp::ExecutorOptions & options = rclcpp::ExecutorOptions(),
     bool yield_before_execute = false,
     std::chrono::nanoseconds timeout = std::chrono::nanoseconds(-1));
 
   RCLCPP_PUBLIC
   virtual ~FixedPrioExecutor();
-  
+
   /// Fixed priority executor implementation of spin.
   /**
    * This function will block until work comes in, execute it, and keep blocking.
