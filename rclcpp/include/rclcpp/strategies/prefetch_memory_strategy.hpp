@@ -237,46 +237,27 @@ public:
           "Couldn't add timer to wait set: %s", rcl_get_error_string().str);
         return false;
       }
-    } else if (subscription->can_loan_messages()) {
-      void * loaned_msg = nullptr;
-      try {
-        rcl_ret_t ret = rcl_take_loaned_message(
-            subscription->get_subscription_handle().get(),
-            &loaned_msg,
-            &message_info.get_rmw_message_info(),
-            nullptr);
-        if (RCL_RET_SUBSCRIPTION_TAKE_FAILED == ret) {
-            return false;
-        } else if (RCL_RET_OK != ret) {
-          rclcpp::exceptions::throw_from_rcl_error(ret);
-        }
-        message.reset(&loaned_msg);    // TODO: This might be bad. After returning, the shared_ptr is
-                                      //       destroyed, deleting the loaned message. Maybe give it
-                                      //       a pointer to a pointer, like above
-        return true;
-      } catch (const rclcpp::exceptions::RCLError & rcl_error) {
-        RCLCPP_ERROR(
-          rclcpp::get_logger("rclcpp"),
-          "executor %s '%s' unexpectedly failed: %s",
-          "taking a loaned message from topic",
-          subscription->get_topic_name(),
-          rcl_error.what());
-        return false;
-      }
-    } else {
-      message = subscription->create_message();
-      try {
-        return subscription->take_type_erased(message.get(), message_info);
-      } catch (const rclcpp::exceptions::RCLError & rcl_error) {
-        RCLCPP_ERROR(
-          rclcpp::get_logger("rclcpp"),
-          "executor %s '%s' unexpectedly failed: %s",
-          "taking a message from topic",
-          subscription->get_topic_name(),
-          rcl_error.what());
+    }
+
+    for (auto guard_condition : guard_conditions_) {
+      if (rcl_wait_set_add_guard_condition(wait_set, guard_condition, NULL) != RCL_RET_OK) {
+        RCUTILS_LOG_ERROR_NAMED(
+          "rclcpp",
+          "Couldn't add guard_condition to wait set: %s",
+          rcl_get_error_string().str);
         return false;
       }
     }
+
+    for (auto waitable : waitable_handles_) {
+      if (!waitable->add_to_wait_set(wait_set)) {
+        RCUTILS_LOG_ERROR_NAMED(
+          "rclcpp",
+          "Couldn't add waitable to wait set: %s", rcl_get_error_string().str);
+        return false;
+      }
+    }
+    return true;
   }
 
   void clear_handles() override
@@ -366,8 +347,6 @@ public:
         break;
       }
     }
-
-    return return_val;
   }
 
   void
@@ -375,7 +354,6 @@ public:
     rclcpp::AnyExecutable & any_exec,
     const WeakCallbackGroupsToNodesMap & weak_groups_to_nodes) override
   {
-    // Get all subscriptions and their messages
     auto it = subscription_handles_.begin();
     while (it != subscription_handles_.end()) {
       auto subscription = get_subscription_by_handle(*it, weak_groups_to_nodes);
@@ -388,20 +366,21 @@ public:
           it = subscription_handles_.erase(it);
           continue;
         }
+        if (!group->can_be_taken_from().load()) {
+          // Group is mutually exclusive and is being used, so skip it for now
+          // Leave it to be checked next time, but continue searching
+          ++it;
+          continue;
+        }
         // Otherwise it is safe to set and return the any_exec
         any_exec.subscription = subscription;
         any_exec.callback_group = group;
         any_exec.node_base = get_node_by_group(group, weak_groups_to_nodes);
-        // Fetch all messages awaiting this subscription
-        std::shared_ptr<void> msg;
-
-        while(get_subscription_message(msg, subscription)) { // && msg != nullptr ???
-          released_work_.emplace({subscription, nullptr, nullptr, nullptr, nullptr, group,
-                                  get_node_by_group(group, weak_groups_to_nodes), msg});
-        }
-        // Else, the subscription is no longer valid, remove it and continue
-        it = subscription_handles_.erase(it);
+        subscription_handles_.erase(it);
+        return;
       }
+      // Else, the subscription is no longer valid, remove it and continue
+      it = subscription_handles_.erase(it);
     }
   }
 
@@ -435,6 +414,43 @@ public:
         service_handles_.erase(it);
         return;
       }
+      // Else, the service is no longer valid, remove it and continue
+      it = service_handles_.erase(it);
+    }
+  }
+
+  void
+  get_next_client(
+    rclcpp::AnyExecutable & any_exec,
+    const WeakCallbackGroupsToNodesMap & weak_groups_to_nodes) override
+  {
+    auto it = client_handles_.begin();
+    while (it != client_handles_.end()) {
+      auto client = get_client_by_handle(*it, weak_groups_to_nodes);
+      if (client) {
+        // Find the group for this handle and see if it can be serviced
+        auto group = get_group_by_client(client, weak_groups_to_nodes);
+        if (!group) {
+          // Group was not found, meaning the service is not valid...
+          // Remove it from the ready list and continue looking
+          it = client_handles_.erase(it);
+          continue;
+        }
+        if (!group->can_be_taken_from().load()) {
+          // Group is mutually exclusive and is being used, so skip it for now
+          // Leave it to be checked next time, but continue searching
+          ++it;
+          continue;
+        }
+        // Otherwise it is safe to set and return the any_exec
+        any_exec.client = client;
+        any_exec.callback_group = group;
+        any_exec.node_base = get_node_by_group(group, weak_groups_to_nodes);
+        client_handles_.erase(it);
+        return;
+      }
+      // Else, the service is no longer valid, remove it and continue
+      it = client_handles_.erase(it);
     }
   }
 
@@ -508,6 +524,8 @@ public:
         waitable_handles_.erase(it);
         return;
       }
+      // Else, the waitable is no longer valid, remove it and continue
+      it = waitable_handles_.erase(it);
     }
   }
 
@@ -580,7 +598,6 @@ public:
         return false;
       }
     }
-    waitable_handles_.push_back(waitable);
   }
 
   bool
@@ -606,7 +623,11 @@ public:
 
       for (int i = 0; i < running_work.size(); i++) {
         if (running_work[i]->callback_group == top_ae->callback_group) {
+          assigned_work_[i].push(top_ae);
           released_work_.pop();
+          break;
+        }
+      }
 
       // If the work couldn't run, it should now be assigned to whoever was blocking it
       assert(top_ae != released_work_.top());   // TODO(nightduck): This might be undefined if empty
