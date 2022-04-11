@@ -31,6 +31,7 @@
 #include "test_msgs/msg/empty.hpp"
 
 using namespace std::chrono_literals;
+using namespace std::placeholders;
 
 class TestRTExecutors : public ::testing::Test
 {
@@ -270,10 +271,84 @@ TEST_F(TestRTExecutors, mutual_exclusion) {
 
 // TODO(nightduck): Test two subscriptions in same reenrant cbg run at same time
 
+// Test callbacks run in correct order
+// TODO: Expand to include clients, services, and waitables
 TEST_F(TestRTExecutors, priority_checking) {
+  std::atomic_int counter;
+  counter = 0;
+
+  bool started = false;
+
+  std::shared_ptr<rclcpp::Node> node =
+    std::make_shared<rclcpp::Node>("node");
+
+  auto pub = node->create_publisher<test_msgs::msg::Empty>("topic", 1);
+
+  auto tmr_callback = [&pub, &counter]() {
+    counter = counter % 3;
+    ASSERT_EQ(counter, 0);
+
+    test_msgs::msg::Empty msg;
+
+    pub->publish(msg);
+
+    counter++;
+  };
+
+  auto sub_callback = [&counter, &node](int order, test_msgs::msg::Empty::ConstSharedPtr msg) {
+    ASSERT_EQ(counter, order);
+
+    uint32_t x = 0xDEADBEEF;
+    rclcpp::Time now = node->now();
+    while (node->now() < now + rclcpp::Duration::from_nanoseconds(60000000)) {
+      x ^= node->now().nanoseconds();
+    }
+
+    test_msgs::msg::Empty msg;
+
+    counter++;
+  };
+
+  auto tmr = node->create_wall_timer(100ms, std::move(tmr_callback));
+  auto sub1 = node->create_subscription<test_msgs::msg::Empty>("topic", 5,
+    [&sub_callback](test_msgs::msg::Empty::ConstSharedPtr msg) { sub_callback(1, msg); });
+  auto sub2 = node->create_subscription<test_msgs::msg::Empty>("topic", 5,
+    [&sub_callback](test_msgs::msg::Empty::ConstSharedPtr msg) { sub_callback(2, msg); });
+
+
   rclcpp::executors::FixedPrioExecutor executor(
-    [](rclcpp::AnyExecutable ae) {
-      auto msg = std::static_pointer_cast<std_msgs::msg::Int32>(ae.data);
-      return msg->data;
+    [&sub1, &sub2](rclcpp::AnyExecutable ae) {
+      if (ae.subscription == sub1) {
+        return 70;
+      } else if (ae.subscription == sub2) {
+        return 60;
+      } else if (ae.timer) {
+        return 50;
+      } else {
+        return 40;
+      }
     });
+
+
+  // Sleep for a short time to verify executor.spin() is going, and didn't throw.
+  executor.add_node(node);
+  std::thread spinner([&]() {
+      executor.spin();
+    });
+
+  std::this_thread::sleep_for(200ms);
+  executor.cancel();
+  spinner.join();
+
+  executor.remove_node(node, true);
+
+  sub1.reset();
+  sub2.reset();
+  pub.reset();
+  tmr.reset();
+
+  node.reset();
 }
+
+// TODO(nightduck): Test individual instances of callback run in correct order, possible not in
+//                  not in order arrived in
