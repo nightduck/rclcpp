@@ -240,10 +240,6 @@ TEST_F(TestRTExecutors, mutual_exclusion) {
   executor.add_node(node2);
   std::thread spinner([&]() {
       executor.spin();
-      // std::promise<void> promise;
-      // std::future<void> future = promise.get_future();
-
-      // executor.spin_until_future_complete(future, std::chrono::milliseconds(100));
     });
 
   test_msgs::msg::Empty msg;
@@ -267,12 +263,13 @@ TEST_F(TestRTExecutors, mutual_exclusion) {
   node2.reset();
 
   ASSERT_EQ(threadsafe_var, 2);
+  ASSERT_EQ(race_var, 2);
 }
 
 // TODO(nightduck): Test two subscriptions in same reenrant cbg run at same time
 
 // Test callbacks run in correct order
-// TODO: Expand to include clients, services, and waitables
+// TODO(nightduck): Expand to include clients, services, and waitables
 TEST_F(TestRTExecutors, priority_checking) {
   std::atomic_int counter;
   counter = 0;
@@ -285,35 +282,37 @@ TEST_F(TestRTExecutors, priority_checking) {
   auto pub = node->create_publisher<test_msgs::msg::Empty>("topic", 1);
 
   auto tmr_callback = [&pub, &counter]() {
-    counter = counter % 3;
-    ASSERT_EQ(counter, 0);
+      if (counter >= 3) {
+        return;
+      } else {
+        ASSERT_EQ(counter, 0);
+      }
 
-    test_msgs::msg::Empty msg;
+      test_msgs::msg::Empty msg;
+      pub->publish(msg);
 
-    pub->publish(msg);
-
-    counter++;
-  };
+      counter++;
+    };
 
   auto sub_callback = [&counter, &node](int order, test_msgs::msg::Empty::ConstSharedPtr msg) {
-    ASSERT_EQ(counter, order);
+      ASSERT_EQ(counter, order);
 
-    uint32_t x = 0xDEADBEEF;
-    rclcpp::Time now = node->now();
-    while (node->now() < now + rclcpp::Duration::from_nanoseconds(60000000)) {
-      x ^= node->now().nanoseconds();
-    }
+      uint32_t x = 0xDEADBEEF;
+      rclcpp::Time now = node->now();
+      while (node->now() < now + rclcpp::Duration::from_nanoseconds(60000000)) {
+        x ^= node->now().nanoseconds();
+      }
 
-    test_msgs::msg::Empty msg;
-
-    counter++;
-  };
+      counter++;
+    };
 
   auto tmr = node->create_wall_timer(100ms, std::move(tmr_callback));
-  auto sub1 = node->create_subscription<test_msgs::msg::Empty>("topic", 5,
-    [&sub_callback](test_msgs::msg::Empty::ConstSharedPtr msg) { sub_callback(1, msg); });
-  auto sub2 = node->create_subscription<test_msgs::msg::Empty>("topic", 5,
-    [&sub_callback](test_msgs::msg::Empty::ConstSharedPtr msg) { sub_callback(2, msg); });
+  auto sub1 = node->create_subscription<test_msgs::msg::Empty>(
+    "topic", 5,
+    [&sub_callback](test_msgs::msg::Empty::ConstSharedPtr msg) {sub_callback(1, msg);});
+  auto sub2 = node->create_subscription<test_msgs::msg::Empty>(
+    "topic", 5,
+    [&sub_callback](test_msgs::msg::Empty::ConstSharedPtr msg) {sub_callback(2, msg);});
 
 
   rclcpp::executors::FixedPrioExecutor executor(
@@ -336,7 +335,7 @@ TEST_F(TestRTExecutors, priority_checking) {
       executor.spin();
     });
 
-  std::this_thread::sleep_for(200ms);
+  std::this_thread::sleep_for(150ms);
   executor.cancel();
   spinner.join();
 

@@ -55,7 +55,7 @@ public:
   }
 };
 
-class CBG_Work
+class CBG_Work : protected std::enable_shared_from_this<CBG_Work>
 {
 public:
   RCLCPP_SMART_PTR_DEFINITIONS(CBG_Work)
@@ -205,8 +205,25 @@ public:
     return running;
   }
 
+  void start_thread()
+  {
+    if (!stopped) {
+      return;
+    }
+    stopped = false;
+    thread = std::thread(std::bind(&CBG_Work::run, this));
+
+    // Make it high priority, to guarantee responsiveness when it wakes up
+    struct sched_param p;
+    p.sched_priority = sched_get_priority_max(SCHED_FIFO);
+    pthread_setschedparam(thread.native_handle(), SCHED_FIFO, &p);
+  }
+
   void stop_thread()
   {
+    if (stopped) {
+      return;
+    }
     stopped = true;
     cond.notify_one();
     thread.join();
@@ -214,11 +231,70 @@ public:
     running = nullptr;
   }
 
+protected:
+  void
+  run()
+  {
+    auto exec = get_work();
+
+    while (exec != nullptr) {
+      pthread_setschedprio(thread.native_handle(), priority);
+
+      if (exec->timer) {
+        TRACEPOINT(
+          rclcpp_executor_execute,
+          static_cast<const void *>(exec->timer->get_timer_handle().get()));
+        exec->timer->execute_callback();
+      }
+      if (exec->subscription) {
+        TRACEPOINT(
+          rclcpp_executor_execute,
+          static_cast<const void *>(exec->subscription->get_subscription_handle().get()));
+        rclcpp::MessageInfo message_info;
+        message_info.get_rmw_message_info().from_intra_process = false;
+        if (exec->subscription->is_serialized()) {
+          auto serialized_msg = std::static_pointer_cast<SerializedMessage>(exec->data);
+          exec->subscription->handle_serialized_message(serialized_msg, message_info);
+          exec->subscription->return_serialized_message(serialized_msg);
+        } else if (exec->subscription->can_loan_messages()) {
+          exec->subscription->handle_loaned_message(exec->data.get(), message_info);
+          rcl_ret_t ret = rcl_return_loaned_message_from_subscription(
+            exec->subscription->get_subscription_handle().get(), exec->data.get());
+          if (RCL_RET_OK != ret) {
+            RCLCPP_ERROR(
+              rclcpp::get_logger(
+                "rclcpp"),
+              "rcl_return_loaned_message_from_subscription() failed for subscription on topic "
+              "'%s': %s",
+              exec->subscription->get_topic_name(), rcl_get_error_string().str);
+          }
+          exec->data = nullptr;
+        } else {
+          exec->subscription->handle_message(exec->data, message_info);
+          exec->subscription->return_message(exec->data);
+        }
+      }
+      if (exec->service) {
+        assert(false);
+      }
+      if (exec->client) {
+        assert(false);
+      }
+      if (exec->waitable) {
+        exec->waitable->execute(exec->data);
+      }
+
+      pthread_setschedprio(thread.native_handle(), sched_get_priority_max(SCHED_FIFO));
+
+      exec = get_work();
+    }
+  }
+
   std::mutex mux;
   std::condition_variable cond;
   std::thread thread;
 
-  bool stopped = false;
+  bool stopped = true;
 
   int priority;
 
@@ -367,10 +443,6 @@ protected:
   RCLCPP_PUBLIC
   void
   spin_some_impl(std::chrono::nanoseconds max_duration, bool exhaustive);
-
-  RCLCPP_PUBLIC
-  void
-  run(rclcpp::experimental::CBG_Work::SharedPtr work);
 
   RCLCPP_PUBLIC
   void

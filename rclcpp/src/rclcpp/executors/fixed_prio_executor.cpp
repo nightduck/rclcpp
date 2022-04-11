@@ -107,6 +107,10 @@ FixedPrioExecutor::map_execs_to_groups()
 void
 FixedPrioExecutor::spin()
 {
+  for (auto cbg : cbg_threads) {
+    cbg.second->start_thread();
+  }
+
   if (spinning.exchange(true)) {
     throw std::runtime_error("spin() called while already spinning");
   }
@@ -124,6 +128,10 @@ FixedPrioExecutor::spin()
     // Refresh wait set and wait for work
     entities_collector_->refresh_wait_set();
     execute_ready_executables();
+  }
+
+  for (auto cbg : cbg_threads) {
+    cbg.second->stop_thread();
   }
 }
 
@@ -150,6 +158,10 @@ FixedPrioExecutor::spin_all(std::chrono::nanoseconds max_duration)
 void
 FixedPrioExecutor::spin_some_impl(std::chrono::nanoseconds max_duration, bool exhaustive)
 {
+  for (auto cbg : cbg_threads) {
+    cbg.second->start_thread();
+  }
+
   // Make sure the entities collector has been initialized
   if (!entities_collector_->is_init()) {
     entities_collector_->init(&wait_set_, memory_strategy_);
@@ -184,6 +196,10 @@ FixedPrioExecutor::spin_some_impl(std::chrono::nanoseconds max_duration, bool ex
       break;
     }
   }
+
+  for (auto cbg : cbg_threads) {
+    cbg.second->stop_thread();
+  }
 }
 
 void
@@ -191,12 +207,6 @@ FixedPrioExecutor::allocate_cbg_resources(rclcpp::CallbackGroup::SharedPtr cbg)
 {
   // Create thread and data for it to operate on. If allowed to run, it'll immediately sleep
   auto cw = std::make_shared<rclcpp::experimental::CBG_Work>();
-  cw->thread = std::thread(std::bind(&FixedPrioExecutor::run, this, _1), cw);
-
-  // Make it high priority, to guarantee responsiveness when it wakes up
-  struct sched_param p;
-  p.sched_priority = sched_get_priority_max(SCHED_FIFO);
-  pthread_setschedparam(cw->thread.native_handle(), SCHED_FIFO, &p);
 
   std::lock_guard<std::mutex> lk(wait_mutex_);
   cbg_threads.emplace(cbg, cw);
@@ -244,64 +254,6 @@ void
 FixedPrioExecutor::add_node(std::shared_ptr<rclcpp::Node> node_ptr, bool notify)
 {
   this->add_node(node_ptr->get_node_base_interface(), notify);
-}
-
-void
-FixedPrioExecutor::run(rclcpp::experimental::CBG_Work::SharedPtr work)
-{
-  auto exec = work->get_work();
-
-  while (rclcpp::ok(this->context_) && spinning.load() && exec != nullptr) {
-    pthread_setschedprio(work->thread.native_handle(), work->priority);
-
-    if (exec->timer) {
-      TRACEPOINT(
-        rclcpp_executor_execute,
-        static_cast<const void *>(exec->timer->get_timer_handle().get()));
-      exec->timer->execute_callback();
-    }
-    if (exec->subscription) {
-      TRACEPOINT(
-        rclcpp_executor_execute,
-        static_cast<const void *>(exec->subscription->get_subscription_handle().get()));
-      rclcpp::MessageInfo message_info;
-      message_info.get_rmw_message_info().from_intra_process = false;
-      if (exec->subscription->is_serialized()) {
-        auto serialized_msg = std::static_pointer_cast<SerializedMessage>(exec->data);
-        exec->subscription->handle_serialized_message(serialized_msg, message_info);
-        exec->subscription->return_serialized_message(serialized_msg);
-      } else if (exec->subscription->can_loan_messages()) {
-        exec->subscription->handle_loaned_message(exec->data.get(), message_info);
-        rcl_ret_t ret = rcl_return_loaned_message_from_subscription(
-          exec->subscription->get_subscription_handle().get(), exec->data.get());
-        if (RCL_RET_OK != ret) {
-          RCLCPP_ERROR(
-            rclcpp::get_logger(
-              "rclcpp"),
-            "rcl_return_loaned_message_from_subscription() failed for subscription on topic "
-            "'%s': %s",
-            exec->subscription->get_topic_name(), rcl_get_error_string().str);
-        }
-        exec->data = nullptr;
-      } else {
-        exec->subscription->handle_message(exec->data, message_info);
-        exec->subscription->return_message(exec->data);
-      }
-    }
-    if (exec->service) {
-      execute_service(exec->service);
-    }
-    if (exec->client) {
-      execute_client(exec->client);
-    }
-    if (exec->waitable) {
-      exec->waitable->execute(exec->data);
-    }
-
-    pthread_setschedprio(work->thread.native_handle(), sched_get_priority_max(SCHED_FIFO));
-
-    exec = work->get_work();
-  }
 }
 
 bool
