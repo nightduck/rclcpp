@@ -23,6 +23,7 @@
 
 #include "rclcpp/allocator/allocator_common.hpp"
 #include "rclcpp/detail/rmw_implementation_specific_publisher_payload.hpp"
+#include "rclcpp/detail/rmw_hazcat_payload.hpp"
 #include "rclcpp/intra_process_setting.hpp"
 #include "rclcpp/qos.hpp"
 #include "rclcpp/qos_event.hpp"
@@ -48,7 +49,7 @@ struct PublisherOptionsBase
   std::shared_ptr<rclcpp::CallbackGroup> callback_group;
 
   /// Optional RMW implementation specific payload to be used during creation of the publisher.
-  std::shared_ptr<rclcpp::detail::RMWImplementationSpecificPublisherPayload>
+  std::shared_ptr<rclcpp::detail::HazcatPayload>
   rmw_implementation_payload = nullptr;
 };
 

@@ -22,6 +22,7 @@
 
 #include "rclcpp/callback_group.hpp"
 #include "rclcpp/detail/rmw_implementation_specific_subscription_payload.hpp"
+#include "rclcpp/detail/rmw_hazcat_payload.hpp"
 #include "rclcpp/intra_process_buffer_type.hpp"
 #include "rclcpp/intra_process_setting.hpp"
 #include "rclcpp/qos.hpp"
@@ -54,7 +55,7 @@ struct SubscriptionOptionsBase
   IntraProcessBufferType intra_process_buffer_type = IntraProcessBufferType::CallbackDefault;
 
   /// Optional RMW implementation specific payload to be used during creation of the subscription.
-  std::shared_ptr<rclcpp::detail::RMWImplementationSpecificSubscriptionPayload>
+  std::shared_ptr<rclcpp::detail::HazcatPayload>
   rmw_implementation_payload = nullptr;
 
   // Options to configure topic statistics collector in the subscription.
