@@ -19,6 +19,7 @@
 #include <type_traits>
 #include <utility>
 #include <vector>
+#include <unistd.h>
 
 #include "rcl/allocator.h"
 #include "rcl/error_handling.h"
@@ -508,25 +509,34 @@ Executor::set_memory_strategy(rclcpp::memory_strategy::MemoryStrategy::SharedPtr
 void
 Executor::execute_any_executable(AnyExecutable & any_exec)
 {
+  sched_param param;
   if (!spinning.load()) {
     return;
   }
   if (any_exec.timer) {
+    param.sched_priority = any_exec.timer->get_priority();
+    sched_setscheduler(getpid(), SCHED_FIFO, &param);
     TRACEPOINT(
       rclcpp_executor_execute,
       static_cast<const void *>(any_exec.timer->get_timer_handle().get()));
     execute_timer(any_exec.timer);
   }
   if (any_exec.subscription) {
+    param.sched_priority = any_exec.subscription->get_actual_qos().deadline().nanoseconds();
+    sched_setscheduler(getpid(), SCHED_FIFO, &param);
     TRACEPOINT(
       rclcpp_executor_execute,
       static_cast<const void *>(any_exec.subscription->get_subscription_handle().get()));
     execute_subscription(any_exec.subscription);
   }
   if (any_exec.service) {
+    param.sched_priority = any_exec.service->get_request_subscription_actual_qos().deadline().nanoseconds();
+    sched_setscheduler(getpid(), SCHED_FIFO, &param);
     execute_service(any_exec.service);
   }
   if (any_exec.client) {
+    param.sched_priority = any_exec.client->get_response_subscription_actual_qos().deadline().nanoseconds();
+    sched_setscheduler(getpid(), SCHED_FIFO, &param);
     execute_client(any_exec.client);
   }
   if (any_exec.waitable) {

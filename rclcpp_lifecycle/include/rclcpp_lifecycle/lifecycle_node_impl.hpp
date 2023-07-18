@@ -91,7 +91,7 @@ LifecycleNode::create_wall_timer(
 {
   auto timer = rclcpp::WallTimer<CallbackT>::make_shared(
     std::chrono::duration_cast<std::chrono::nanoseconds>(period),
-    std::move(callback), this->node_base_->get_context());
+    std::move(callback), LOW, this->node_base_->get_context());
   node_timers_->add_timer(timer, group);
   return timer;
 }

@@ -24,6 +24,8 @@
 #include <type_traits>
 #include <utility>
 
+#include "rclcpp/experimental/fifo_sched.hpp"
+
 #include "rclcpp/clock.hpp"
 #include "rclcpp/context.hpp"
 #include "rclcpp/function_traits.hpp"
@@ -52,13 +54,15 @@ public:
   /**
    * \param clock A clock to use for time and sleeping
    * \param period The interval at which the timer fires
+   * \param priority The priority of the timer
    * \param context node context
    */
   RCLCPP_PUBLIC
   explicit TimerBase(
     Clock::SharedPtr clock,
     std::chrono::nanoseconds period,
-    rclcpp::Context::SharedPtr context);
+    rclcpp::Context::SharedPtr context,
+    int priority = LOW);
 
   /// TimerBase destructor
   RCLCPP_PUBLIC
@@ -135,6 +139,12 @@ public:
   RCLCPP_PUBLIC
   bool is_ready();
 
+  /// Accessor for priority
+  /** \return Value of priority_ */
+  RCLCPP_PUBLIC
+  virtual int
+  get_priority() = 0;
+
   /// Exchange the "in use by wait set" state for this timer.
   /**
    * This is used to ensure this timer is not used by multiple
@@ -154,6 +164,8 @@ protected:
   std::shared_ptr<rcl_timer_t> timer_handle_;
 
   std::atomic<bool> in_use_by_wait_set_{false};
+
+  int priority_;
 };
 
 
@@ -178,13 +190,14 @@ public:
    * \param[in] clock The clock providing the current time.
    * \param[in] period The interval at which the timer fires.
    * \param[in] callback User-specified callback function.
+   * \param[in] priority The priority of the timer.
    * \param[in] context custom context to be used.
    */
   explicit GenericTimer(
     Clock::SharedPtr clock, std::chrono::nanoseconds period, FunctorT && callback,
-    rclcpp::Context::SharedPtr context
+    int priority, rclcpp::Context::SharedPtr context
   )
-  : TimerBase(clock, period, context), callback_(std::forward<FunctorT>(callback))
+  : TimerBase(clock, period, context, priority), callback_(std::forward<FunctorT>(callback))
   {
     TRACEPOINT(
       rclcpp_timer_callback_added,
@@ -264,6 +277,15 @@ public:
     return clock_->get_clock_type() == RCL_STEADY_TIME;
   }
 
+  /// Accessor for priority
+  /** \return Value of priority_ */
+  RCLCPP_PUBLIC
+  int
+  get_priority() override
+  {
+    return priority_;
+  }
+
 protected:
   RCLCPP_DISABLE_COPY(GenericTimer)
 
@@ -291,9 +313,10 @@ public:
   WallTimer(
     std::chrono::nanoseconds period,
     FunctorT && callback,
+    int priority,
     rclcpp::Context::SharedPtr context)
   : GenericTimer<FunctorT>(
-      std::make_shared<Clock>(RCL_STEADY_TIME), period, std::move(callback), context)
+      std::make_shared<Clock>(RCL_STEADY_TIME), period, std::move(callback), priority, context)
   {}
 
 protected:

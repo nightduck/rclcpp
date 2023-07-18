@@ -18,10 +18,13 @@
 #include <functional>
 #include <memory>
 #include <vector>
+#include <sched.h>
+#include <unistd.h>
 
 #include "rcpputils/scope_exit.hpp"
 
 #include "rclcpp/utilities.hpp"
+#include "rclcpp/experimental/fifo_sched.hpp"
 
 using rclcpp::executors::MultiThreadedExecutor;
 
@@ -90,7 +93,14 @@ MultiThreadedExecutor::run(size_t this_thread_number)
       std::this_thread::yield();
     }
 
+    // TODO: Adjust exec priority in this function call
     execute_any_executable(any_exec);
+
+    // Change the thread priority back to HIGHEST with sched_param
+    sched_param param;
+    param.sched_priority = HIGHEST;
+    sched_setscheduler(getpid(), SCHED_FIFO, &param);
+
 
     // Clear the callback_group to prevent the AnyExecutable destructor from
     // resetting the callback group `can_be_taken_from`

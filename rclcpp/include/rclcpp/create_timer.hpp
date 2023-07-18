@@ -21,6 +21,8 @@
 #include <string>
 #include <utility>
 
+#include "rclcpp/experimental/fifo_sched.hpp"
+
 #include "rclcpp/duration.hpp"
 #include "rclcpp/node_interfaces/get_node_base_interface.hpp"
 #include "rclcpp/node_interfaces/get_node_timers_interface.hpp"
@@ -39,12 +41,14 @@ create_timer(
   rclcpp::Clock::SharedPtr clock,
   rclcpp::Duration period,
   CallbackT && callback,
+  int priority = LOW,
   rclcpp::CallbackGroup::SharedPtr group = nullptr)
 {
   auto timer = rclcpp::GenericTimer<CallbackT>::make_shared(
     clock,
     period.to_chrono<std::chrono::nanoseconds>(),
     std::forward<CallbackT>(callback),
+    priority,
     node_base->get_context());
 
   node_timers->add_timer(timer, group);
@@ -59,6 +63,7 @@ create_timer(
   rclcpp::Clock::SharedPtr clock,
   rclcpp::Duration period,
   CallbackT && callback,
+  int priority = LOW,
   rclcpp::CallbackGroup::SharedPtr group = nullptr)
 {
   return create_timer(
@@ -67,6 +72,7 @@ create_timer(
     clock,
     period,
     std::forward<CallbackT>(callback),
+    priority,
     group);
 }
 
@@ -92,7 +98,8 @@ create_wall_timer(
   CallbackT callback,
   rclcpp::CallbackGroup::SharedPtr group,
   node_interfaces::NodeBaseInterface * node_base,
-  node_interfaces::NodeTimersInterface * node_timers)
+  node_interfaces::NodeTimersInterface * node_timers,
+  int priority = LOW)
 {
   if (node_base == nullptr) {
     throw std::invalid_argument{"input node_base cannot be null"};
@@ -133,7 +140,7 @@ create_wall_timer(
   }
 
   auto timer = rclcpp::WallTimer<CallbackT>::make_shared(
-    period_ns, std::move(callback), node_base->get_context());
+    period_ns, std::move(callback), priority, node_base->get_context());
   node_timers->add_timer(timer, group);
   return timer;
 }

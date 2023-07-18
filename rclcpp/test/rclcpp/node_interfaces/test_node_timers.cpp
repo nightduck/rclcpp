@@ -30,11 +30,12 @@ class TestTimer : public rclcpp::TimerBase
 public:
   explicit TestTimer(rclcpp::Node * node)
   : TimerBase(node->get_clock(), std::chrono::nanoseconds(1),
-      node->get_node_base_interface()->get_context()) {}
+      node->get_node_base_interface()->get_context(), LOW) {}
 
   bool call() override {return true;}
   void execute_callback() override {}
   bool is_steady() override {return false;}
+  int get_priority() override {return priority_;}
 };
 
 class TestNodeTimers : public ::testing::Test

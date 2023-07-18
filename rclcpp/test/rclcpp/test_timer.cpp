@@ -167,34 +167,34 @@ TEST_F(TestTimer, test_bad_arguments) {
 
   // Negative period
   EXPECT_THROW(
-    rclcpp::GenericTimer<void (*)()>(steady_clock, -1ms, []() {}, context),
+    rclcpp::GenericTimer<void (*)()>(steady_clock, -1ms, []() {}, LOW, context),
     rclcpp::exceptions::RCLInvalidArgument);
 
   // Very negative period
   constexpr auto nanoseconds_min = std::chrono::nanoseconds::min();
   EXPECT_THROW(
     rclcpp::GenericTimer<void (*)()>(
-      steady_clock, nanoseconds_min, []() {}, context),
+      steady_clock, nanoseconds_min, []() {}, LOW, context),
     rclcpp::exceptions::RCLInvalidArgument);
 
   // nanoseconds max, should be ok
   constexpr auto nanoseconds_max = std::chrono::nanoseconds::max();
   EXPECT_NO_THROW(
     rclcpp::GenericTimer<void (*)()>(
-      steady_clock, nanoseconds_max, []() {}, context));
+      steady_clock, nanoseconds_max, []() {}, LOW, context));
 
   // 0 duration period, should be ok
   EXPECT_NO_THROW(
-    rclcpp::GenericTimer<void (*)()>(steady_clock, 0ms, []() {}, context));
+    rclcpp::GenericTimer<void (*)()>(steady_clock, 0ms, []() {}, LOW, context));
 
   // context is null, which resorts to default
   EXPECT_NO_THROW(
-    rclcpp::GenericTimer<void (*)()>(steady_clock, 1ms, []() {}, nullptr));
+    rclcpp::GenericTimer<void (*)()>(steady_clock, 1ms, []() {}, LOW, nullptr));
 
   // Clock is unitialized
   auto unitialized_clock = std::make_shared<rclcpp::Clock>(RCL_CLOCK_UNINITIALIZED);
   EXPECT_THROW(
-    rclcpp::GenericTimer<void (*)()>(unitialized_clock, 1us, []() {}, context),
+    rclcpp::GenericTimer<void (*)()>(unitialized_clock, 1us, []() {}, LOW, context),
     rclcpp::exceptions::RCLError);
 }
 
