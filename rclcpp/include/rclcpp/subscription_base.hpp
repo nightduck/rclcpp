@@ -22,6 +22,7 @@
 #include <unordered_map>
 #include <vector>
 #include <utility>
+#include <sched.h>
 
 #include "rcl/event_callback.h"
 #include "rcl/subscription.h"
@@ -526,6 +527,18 @@ public:
   rclcpp::ContentFilterOptions
   get_content_filter() const;
 
+  RCLCPP_PUBLIC
+  struct sched_param
+  sched_param() const {
+    return sp;
+  }
+
+  RCLCPP_PUBLIC
+  void
+  sched_param(struct sched_param sp) {
+    this->sp = sp;
+  }
+
 protected:
   template<typename EventCallbackT>
   void
@@ -568,6 +581,8 @@ protected:
   IntraProcessManagerWeakPtr weak_ipm_;
   uint64_t intra_process_subscription_id_;
   std::shared_ptr<rclcpp::experimental::SubscriptionIntraProcessBase> subscription_intra_process_;
+
+  struct sched_param sp;
 
 private:
   RCLCPP_DISABLE_COPY(SubscriptionBase)

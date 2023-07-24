@@ -522,7 +522,7 @@ Executor::execute_any_executable(AnyExecutable & any_exec)
     execute_timer(any_exec.timer);
   }
   if (any_exec.subscription) {
-    param.sched_priority = any_exec.subscription->get_actual_qos().deadline().nanoseconds();
+    param = any_exec.subscription->sched_param();
     sched_setscheduler(getpid(), SCHED_FIFO, &param);
     TRACEPOINT(
       rclcpp_executor_execute,
