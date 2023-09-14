@@ -46,7 +46,8 @@ SubscriptionBase::SubscriptionBase(
   use_intra_process_(false),
   intra_process_subscription_id_(0),
   type_support_(type_support_handle),
-  is_serialized_(is_serialized)
+  is_serialized_(is_serialized),
+  sp({LOW})
 {
   auto custom_deletor = [node_handle = this->node_handle_](rcl_subscription_t * rcl_subs)
     {

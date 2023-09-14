@@ -515,7 +515,9 @@ Executor::execute_any_executable(AnyExecutable & any_exec)
   }
   if (any_exec.timer) {
     param.sched_priority = any_exec.timer->get_priority();
-    sched_setscheduler(getpid(), SCHED_FIFO, &param);
+    if(sched_setscheduler(getpid(), SCHED_FIFO, &param) == -1) {
+        printf("Failed to set priority for timer\n");
+    }
     TRACEPOINT(
       rclcpp_executor_execute,
       static_cast<const void *>(any_exec.timer->get_timer_handle().get()));
@@ -523,7 +525,9 @@ Executor::execute_any_executable(AnyExecutable & any_exec)
   }
   if (any_exec.subscription) {
     param = any_exec.subscription->sched_param();
-    sched_setscheduler(getpid(), SCHED_FIFO, &param);
+    if(sched_setscheduler(getpid(), SCHED_FIFO, &param) == -1) {
+        printf("Failed to set priority for subscription\n");
+    }
     TRACEPOINT(
       rclcpp_executor_execute,
       static_cast<const void *>(any_exec.subscription->get_subscription_handle().get()));
@@ -531,12 +535,16 @@ Executor::execute_any_executable(AnyExecutable & any_exec)
   }
   if (any_exec.service) {
     param.sched_priority = any_exec.service->get_request_subscription_actual_qos().deadline().nanoseconds();
-    sched_setscheduler(getpid(), SCHED_FIFO, &param);
+    if(sched_setscheduler(getpid(), SCHED_FIFO, &param) == -1) {
+        printf("Failed to set priority for service\n");
+    }
     execute_service(any_exec.service);
   }
   if (any_exec.client) {
     param.sched_priority = any_exec.client->get_response_subscription_actual_qos().deadline().nanoseconds();
-    sched_setscheduler(getpid(), SCHED_FIFO, &param);
+    if(sched_setscheduler(getpid(), SCHED_FIFO, &param) == -1) {
+        printf("Failed to set priority for client\n");
+    }
     execute_client(any_exec.client);
   }
   if (any_exec.waitable) {
