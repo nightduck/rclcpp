@@ -64,6 +64,12 @@ public:
     rclcpp::Context::SharedPtr context,
     int priority = LOW);
 
+  RCLCPP_PUBLIC
+  explicit TimerBase(
+    Clock::SharedPtr clock,
+    std::chrono::nanoseconds period,
+    rclcpp::Context::SharedPtr context);
+
   /// TimerBase destructor
   RCLCPP_PUBLIC
   virtual

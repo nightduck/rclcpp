@@ -27,6 +27,11 @@
 using rclcpp::TimerBase;
 
 TimerBase::TimerBase(
+    Clock::SharedPtr clock,
+    std::chrono::nanoseconds period,
+    rclcpp::Context::SharedPtr context) : TimerBase::TimerBase(clock, period, context, LOW) {}
+
+TimerBase::TimerBase(
   rclcpp::Clock::SharedPtr clock,
   std::chrono::nanoseconds period,
   rclcpp::Context::SharedPtr context,
