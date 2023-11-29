@@ -97,6 +97,7 @@ create_timer(
     clock,
     period.to_chrono<std::chrono::nanoseconds>(),
     std::forward<CallbackT>(callback),
+    {},
     group,
     node_base.get(),
     node_timers.get(),
@@ -118,6 +119,7 @@ create_timer(
     clock,
     period.to_chrono<std::chrono::nanoseconds>(),
     std::forward<CallbackT>(callback),
+    {},
     group,
     rclcpp::node_interfaces::get_node_base_interface(node).get(),
     rclcpp::node_interfaces::get_node_timers_interface(node).get(),
@@ -147,6 +149,7 @@ create_timer(
   rclcpp::Clock::SharedPtr clock,
   std::chrono::duration<DurationRepT, DurationT> period,
   CallbackT callback,
+  std::initializer_list<rclcpp::PublisherBase::SharedPtr> publishers, // TODO: Reconsider position of this
   rclcpp::CallbackGroup::SharedPtr group,
   node_interfaces::NodeBaseInterface * node_base,
   node_interfaces::NodeTimersInterface * node_timers,
@@ -168,6 +171,13 @@ create_timer(
   auto timer = rclcpp::GenericTimer<CallbackT>::make_shared(
     std::move(clock), period_ns, std::move(callback), node_base->get_context(), autostart);
   node_timers->add_timer(timer, group);
+
+  // Get any subscriptions downstream from the publisher and add their graph_node_t to this one
+  for (auto & publisher : publishers) {
+    auto topic_name = publisher->get_topic_name();
+    timer->add_output_topic(topic_name);
+  }
+
   return timer;
 }
 
@@ -191,6 +201,7 @@ typename rclcpp::WallTimer<CallbackT>::SharedPtr
 create_wall_timer(
   std::chrono::duration<DurationRepT, DurationT> period,
   CallbackT callback,
+  std::initializer_list<rclcpp::PublisherBase::SharedPtr> publishers, // TODO: Reconsider position of this
   rclcpp::CallbackGroup::SharedPtr group,
   node_interfaces::NodeBaseInterface * node_base,
   node_interfaces::NodeTimersInterface * node_timers,
@@ -206,9 +217,16 @@ create_wall_timer(
 
   const std::chrono::nanoseconds period_ns = detail::safe_cast_to_period_in_ns(period);
 
-  // Add a new wall timer.
+  // Create a new wall timer.
   auto timer = rclcpp::WallTimer<CallbackT>::make_shared(
-    period_ns, std::move(callback), node_base->get_context(), autostart);
+    period_ns, std::move(callback), node_base->get_context());
+
+  // Get any subscriptions downstream from the publisher and add their graph_node_t to this one
+  for (auto & publisher : publishers) {
+    auto topic_name = publisher->get_topic_name();
+    timer->add_output_topic(topic_name);
+  }
+  
   node_timers->add_timer(timer, group);
   return timer;
 }

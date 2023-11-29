@@ -34,6 +34,7 @@
 #include "rclcpp/dynamic_typesupport/dynamic_message.hpp"
 #include "rclcpp/dynamic_typesupport/dynamic_message_type.hpp"
 #include "rclcpp/dynamic_typesupport/dynamic_serialization_support.hpp"
+#include "rclcpp/experimental/graph_executable.hpp"
 #include "rclcpp/experimental/intra_process_manager.hpp"
 #include "rclcpp/experimental/subscription_intra_process_base.hpp"
 #include "rclcpp/macros.hpp"
@@ -86,7 +87,8 @@ enum class DeliveredMessageKind : uint8_t
 
 /// Virtual base class for subscriptions. This pattern allows us to iterate over different template
 /// specializations of Subscription, among other things.
-class SubscriptionBase : public std::enable_shared_from_this<SubscriptionBase>
+class SubscriptionBase : public std::enable_shared_from_this<SubscriptionBase>,
+                         public experimental::GraphExecutable
 {
 public:
   RCLCPP_SMART_PTR_DEFINITIONS_NOT_COPYABLE(SubscriptionBase)

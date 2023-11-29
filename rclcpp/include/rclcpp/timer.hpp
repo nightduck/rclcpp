@@ -26,6 +26,7 @@
 
 #include "rclcpp/clock.hpp"
 #include "rclcpp/context.hpp"
+#include "rclcpp/experimental/graph_executable.hpp"
 #include "rclcpp/function_traits.hpp"
 #include "rclcpp/macros.hpp"
 #include "rclcpp/rate.hpp"
@@ -43,7 +44,7 @@
 namespace rclcpp
 {
 
-class TimerBase
+class TimerBase : public experimental::GraphExecutable
 {
 public:
   RCLCPP_SMART_PTR_DEFINITIONS_NOT_COPYABLE(TimerBase)
