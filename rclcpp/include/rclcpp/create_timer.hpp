@@ -97,7 +97,6 @@ create_timer(
     clock,
     period.to_chrono<std::chrono::nanoseconds>(),
     std::forward<CallbackT>(callback),
-    {},
     group,
     node_base.get(),
     node_timers.get(),
@@ -119,7 +118,6 @@ create_timer(
     clock,
     period.to_chrono<std::chrono::nanoseconds>(),
     std::forward<CallbackT>(callback),
-    {},
     group,
     rclcpp::node_interfaces::get_node_base_interface(node).get(),
     rclcpp::node_interfaces::get_node_timers_interface(node).get(),
@@ -149,10 +147,10 @@ create_timer(
   rclcpp::Clock::SharedPtr clock,
   std::chrono::duration<DurationRepT, DurationT> period,
   CallbackT callback,
-  std::initializer_list<rclcpp::PublisherBase::SharedPtr> publishers, // TODO: Reconsider position of this
   rclcpp::CallbackGroup::SharedPtr group,
   node_interfaces::NodeBaseInterface * node_base,
   node_interfaces::NodeTimersInterface * node_timers,
+  std::initializer_list<rclcpp::PublisherBase::SharedPtr> publishers = {},
   bool autostart = true)
 {
   if (clock == nullptr) {
@@ -201,10 +199,10 @@ typename rclcpp::WallTimer<CallbackT>::SharedPtr
 create_wall_timer(
   std::chrono::duration<DurationRepT, DurationT> period,
   CallbackT callback,
-  std::initializer_list<rclcpp::PublisherBase::SharedPtr> publishers, // TODO: Reconsider position of this
   rclcpp::CallbackGroup::SharedPtr group,
   node_interfaces::NodeBaseInterface * node_base,
   node_interfaces::NodeTimersInterface * node_timers,
+  std::initializer_list<rclcpp::PublisherBase::SharedPtr> publishers = {},
   bool autostart = true)
 {
   if (node_base == nullptr) {

@@ -59,13 +59,13 @@ create_subscription(
   const std::string & topic_name,
   const rclcpp::QoS & qos,
   CallbackT && callback,
-  std::initializer_list<rclcpp::PublisherBase::SharedPtr> publishers = {},
   const rclcpp::SubscriptionOptionsWithAllocator<AllocatorT> & options = (
     rclcpp::SubscriptionOptionsWithAllocator<AllocatorT>()
   ),
   typename MessageMemoryStrategyT::SharedPtr msg_mem_strat = (
     MessageMemoryStrategyT::create_default()
-  )
+  ),
+  std::initializer_list<rclcpp::PublisherBase::SharedPtr> publishers = {}
 )
 {
   using rclcpp::node_interfaces::get_node_topics_interface;
@@ -111,7 +111,6 @@ create_subscription(
       std::chrono::duration_cast<std::chrono::nanoseconds>(
         options.topic_stats_options.publish_period),
       sub_call_back,
-      {},
       options.callback_group,
       node_topics_interface->get_node_base_interface(),
       node_timer_interface
@@ -187,18 +186,18 @@ create_subscription(
   const std::string & topic_name,
   const rclcpp::QoS & qos,
   CallbackT && callback,
-  std::initializer_list<rclcpp::PublisherBase::SharedPtr> publishers = {}, // TODO: Reconsider position of this
   const rclcpp::SubscriptionOptionsWithAllocator<AllocatorT> & options = (
     rclcpp::SubscriptionOptionsWithAllocator<AllocatorT>()
   ),
   typename MessageMemoryStrategyT::SharedPtr msg_mem_strat = (
     MessageMemoryStrategyT::create_default()
-  )
+  ),
+  std::initializer_list<rclcpp::PublisherBase::SharedPtr> publishers = {}
 )
 {
   return rclcpp::detail::create_subscription<
     MessageT, CallbackT, AllocatorT, SubscriptionT, MessageMemoryStrategyT>(
-    node, node, topic_name, qos, std::forward<CallbackT>(callback), publishers, options, msg_mem_strat);
+    node, node, topic_name, qos, std::forward<CallbackT>(callback), options, msg_mem_strat, publishers);
 }
 
 /// Create and return a subscription of the given MessageT type.
@@ -218,19 +217,19 @@ create_subscription(
   const std::string & topic_name,
   const rclcpp::QoS & qos,
   CallbackT && callback,
-  std::initializer_list<rclcpp::PublisherBase::SharedPtr> publishers = {},
   const rclcpp::SubscriptionOptionsWithAllocator<AllocatorT> & options = (
     rclcpp::SubscriptionOptionsWithAllocator<AllocatorT>()
   ),
   typename MessageMemoryStrategyT::SharedPtr msg_mem_strat = (
     MessageMemoryStrategyT::create_default()
-  )
+  ),
+  std::initializer_list<rclcpp::PublisherBase::SharedPtr> publishers = {}
 )
 {
   return rclcpp::detail::create_subscription<
     MessageT, CallbackT, AllocatorT, SubscriptionT, MessageMemoryStrategyT>(
     node_parameters, node_topics, topic_name, qos,
-    std::forward<CallbackT>(callback), publishers, options, msg_mem_strat);
+    std::forward<CallbackT>(callback), options, msg_mem_strat, publishers);
 }
 
 }  // namespace rclcpp

@@ -221,12 +221,12 @@ public:
     const std::string & topic_name,
     const rclcpp::QoS & qos,
     CallbackT && callback,
-    std::initializer_list<rclcpp::PublisherBase::SharedPtr> publishers = {},
     const SubscriptionOptionsWithAllocator<AllocatorT> & options =
     SubscriptionOptionsWithAllocator<AllocatorT>(),
     typename MessageMemoryStrategyT::SharedPtr msg_mem_strat = (
       MessageMemoryStrategyT::create_default()
-    )
+    ),
+    std::initializer_list<rclcpp::PublisherBase::SharedPtr> publishers = {}
   );
 
   /// Create a wall timer that uses the wall clock to drive the callback.
@@ -241,8 +241,8 @@ public:
   create_wall_timer(
     std::chrono::duration<DurationRepT, DurationT> period,
     CallbackT callback,
-    std::initializer_list<rclcpp::PublisherBase::SharedPtr> publishers = {},
     rclcpp::CallbackGroup::SharedPtr group = nullptr,
+    std::initializer_list<rclcpp::PublisherBase::SharedPtr> publishers = {},
     bool autostart = true);
 
   /// Create a timer that uses the node clock to drive the callback.
@@ -256,8 +256,8 @@ public:
   create_timer(
     std::chrono::duration<DurationRepT, DurationT> period,
     CallbackT callback,
-    std::initializer_list<rclcpp::PublisherBase::SharedPtr> publishers = {},
-    rclcpp::CallbackGroup::SharedPtr group = nullptr);
+    rclcpp::CallbackGroup::SharedPtr group = nullptr,
+    std::initializer_list<rclcpp::PublisherBase::SharedPtr> publishers = {});
 
   /// Create and return a Client.
   /**
