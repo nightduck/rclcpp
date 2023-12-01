@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef RCLCPP__EXPERIMENTAL__EXECUTABLE_GRAPH_HPP_
-#define RCLCPP__EXPERIMENTAL__EXECUTABLE_GRAPH_HPP_
+#ifndef RCLCPP__EXPERIMENTAL__GRAPH_EXECUTABLE_HPP_
+#define RCLCPP__EXPERIMENTAL__GRAPH_EXECUTABLE_HPP_
 
 #include <string>
 #include <vector>
@@ -46,9 +46,10 @@ public:
     const rclcpp::experimental::GraphExecutable::SharedPtr & child);
 
   RCLCPP_PUBLIC
-  void 
+  void
   add_output_topic(
     const std::string & topic_name);
+
 private:
   rclcpp::experimental::graph_node_t::SharedPtr graph_node_;
 };
@@ -56,4 +57,4 @@ private:
 }  // namespace experimental
 }  // namespace rclcpp
 
-#endif  // RCLCPP__EXPERIMENTAL__EXECUTABLE_GRAPH_HPP_
+#endif  // RCLCPP__EXPERIMENTAL__GRAPH_EXECUTABLE_HPP_

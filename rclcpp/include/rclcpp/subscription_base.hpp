@@ -88,7 +88,7 @@ enum class DeliveredMessageKind : uint8_t
 /// Virtual base class for subscriptions. This pattern allows us to iterate over different template
 /// specializations of Subscription, among other things.
 class SubscriptionBase : public std::enable_shared_from_this<SubscriptionBase>,
-                         public experimental::GraphExecutable
+  public experimental::GraphExecutable
 {
 public:
   RCLCPP_SMART_PTR_DEFINITIONS_NOT_COPYABLE(SubscriptionBase)

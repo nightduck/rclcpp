@@ -197,7 +197,8 @@ create_subscription(
 {
   return rclcpp::detail::create_subscription<
     MessageT, CallbackT, AllocatorT, SubscriptionT, MessageMemoryStrategyT>(
-    node, node, topic_name, qos, std::forward<CallbackT>(callback), options, msg_mem_strat, publishers);
+    node, node, topic_name, qos, std::forward<CallbackT>(callback),
+    options, msg_mem_strat, publishers);
 }
 
 /// Create and return a subscription of the given MessageT type.

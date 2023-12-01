@@ -18,7 +18,7 @@ namespace rclcpp
 {
 namespace experimental
 {
-  
+
 void
 GraphExecutable::add_graph_child(
   const rclcpp::experimental::GraphExecutable::SharedPtr & child)
@@ -32,6 +32,6 @@ GraphExecutable::add_output_topic(
 {
   graph_node_->topics.emplace_back(topic_name);
 }
-  
+
 }  // namespace experimental
 }  // namespace rclcpp

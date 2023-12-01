@@ -224,7 +224,7 @@ create_wall_timer(
     auto topic_name = publisher->get_topic_name();
     timer->add_output_topic(topic_name);
   }
-  
+
   node_timers->add_timer(timer, group);
   return timer;
 }
