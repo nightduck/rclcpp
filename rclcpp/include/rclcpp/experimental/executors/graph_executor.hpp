@@ -15,6 +15,8 @@
 #ifndef RCLCPP__EXPERIMENTAL__GRAPH_EXECUTOR_HPP_
 #define RCLCPP__EXPERIMENTAL__GRAPH_EXECUTOR_HPP_
 
+#include <map>
+
 #include "rclcpp/experimental/executors/events_executor/events_executor.hpp"
 
 namespace rclcpp
@@ -51,15 +53,13 @@ public:
     rclcpp::node_interfaces::NodeBaseInterface::SharedPtr node_ptr,
     bool notify = true) override;
 
-  /// Add a node to the executor.
+  /// Convenience function which takes Node and forwards NodeBaseInterface.
   /**
-   * \sa rclcpp::experimental::executors::EventsExecutor::add_node
+   * \sa rclcpp::EventsExecutor::add_node
    */
   RCLCPP_PUBLIC
   void
-  add_node(
-    const rclcpp::Node::SharedPtr & node,
-    const rclcpp::NodeOptions & options = rclcpp::NodeOptions());
+  add_node(std::shared_ptr<rclcpp::Node> node_ptr, bool notify = true) override;
 
   /// Remove a node from the executor.
   /**
@@ -78,6 +78,9 @@ public:
   RCLCPP_PUBLIC
   void
   remove_node(std::shared_ptr<rclcpp::Node> node_ptr, bool notify = true) override;
+
+private:
+  std::multimap<void *, graph_node_t::SharedPtr> graph_nodes_;
 };
 
 }  // namespace executors

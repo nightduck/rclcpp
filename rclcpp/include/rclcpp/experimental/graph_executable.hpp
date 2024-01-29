@@ -20,6 +20,7 @@
 #include <memory>
 
 #include "rclcpp/visibility_control.hpp"
+#include "rclcpp/experimental/executors/graph_executor.hpp"
 
 namespace rclcpp
 {
@@ -31,8 +32,11 @@ typedef struct graph_node_t
   typedef std::shared_ptr<graph_node_t> SharedPtr;
 
   std::string name;
-  std::vector<std::string> topics;
+  std::string input_topic;
+  std::vector<std::string> output_topics;
+  graph_node_t::SharedPtr parent;
   std::vector<graph_node_t::SharedPtr> children;
+  int wcet;
 } graph_node_t;
 
 class GraphExecutable
@@ -43,7 +47,7 @@ public:
   RCLCPP_PUBLIC
   void
   add_graph_child(
-    const rclcpp::experimental::GraphExecutable::SharedPtr & child);
+    const GraphExecutable::SharedPtr & child);
 
   RCLCPP_PUBLIC
   void
@@ -51,7 +55,9 @@ public:
     const std::string & topic_name);
 
 private:
-  rclcpp::experimental::graph_node_t::SharedPtr graph_node_;
+  graph_node_t::SharedPtr graph_node_;
+
+  friend class GraphExecutor;
 };
 
 }  // namespace experimental

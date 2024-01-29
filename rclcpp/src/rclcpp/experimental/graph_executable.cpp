@@ -30,7 +30,7 @@ void
 GraphExecutable::add_output_topic(
   const std::string & topic_name)
 {
-  graph_node_->topics.emplace_back(topic_name);
+  graph_node_->output_topics.emplace_back(topic_name);
 }
 
 }  // namespace experimental

@@ -121,6 +121,7 @@ create_timer(
     group,
     rclcpp::node_interfaces::get_node_base_interface(node).get(),
     rclcpp::node_interfaces::get_node_timers_interface(node).get(),
+    {},
     autostart);
 }
 
@@ -217,7 +218,7 @@ create_wall_timer(
 
   // Create a new wall timer.
   auto timer = rclcpp::WallTimer<CallbackT>::make_shared(
-    period_ns, std::move(callback), node_base->get_context());
+    period_ns, std::move(callback), node_base->get_context(), autostart);
 
   // Get any subscriptions downstream from the publisher and add their graph_node_t to this one
   for (auto & publisher : publishers) {
