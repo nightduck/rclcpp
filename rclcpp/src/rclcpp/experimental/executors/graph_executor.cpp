@@ -44,11 +44,12 @@ GraphExecutor::add_node(rclcpp::node_interfaces::NodeBaseInterface::SharedPtr no
       if (!group_ptr) {
         return;
       }
+      // TODO: Reassess variable names, esp node_ptr, and node_ptr_copy
       if (group_ptr->can_be_taken_from().load()) {
         group_ptr->collect_all_ptrs(
           [this, weak_group_ptr](const rclcpp::SubscriptionBase::SharedPtr & subscription) {
             std::list<std::pair<const void*, graph_node_t::SharedPtr>> nodes_to_insert;
-            // Iterate over graph_nodes_
+            // Iterate over graph_nodes
             for (const auto& node : graph_nodes_) {
               // Access the key (executable entity) and value (graph node)
               const void* entity = node.first;
@@ -75,23 +76,35 @@ GraphExecutor::add_node(rclcpp::node_interfaces::NodeBaseInterface::SharedPtr no
                 }
               }
 
-              // TODO
               // If node_ptr is subscription and input topic matches one of subscription's output
               // topics, then add the subscription to the graph node as a parent.
               if (std::find(sub_node->output_topics.begin(), sub_node->output_topics.end(),
                   node_ptr->input_topic) != sub_node->output_topics.end())  {
                 auto node_ptr_copy = std::make_shared<graph_node_t>(*node_ptr);
                 
-                // Link two nodes together
-                sub_node->children.emplace_back(node_ptr_copy);
-                node_ptr_copy->parent = sub_node;
+                // Add a node_ptr_copy object for every instance of the subscription in the graph
+                for (auto sub_node : nodes_to_insert) {
+                  // Link the two nodes
+                  auto sub_node_copy = sub_node.second;
+                  sub_node_copy->children.emplace_back(node_ptr_copy);
+                  node_ptr_copy->parent = sub_node_copy;
+                  
+                  // Add this graph node to the list of nodes to insert
+                  graph_nodes_.insert(std::make_pair(sub_node.first, sub_node_copy));
+
+                  // Regenerate another copy
+                  node_ptr_copy = std::make_shared<graph_node_t>(*node_ptr);
+                }
 
                 // Add this graph node to the list of nodes to insert
                 nodes_to_insert.push_back(std::make_pair(entity, node_ptr));
               }
             }
+            for(const auto& node : nodes_to_insert) {
+              graph_nodes_.insert(node);
+            }
           },
-          [this, weak_group_ptr](const rclcpp::ServiceBase::SharedPtr & timer) {
+          [this, weak_group_ptr](const rclcpp::ServiceBase::SharedPtr & service) {
             // Iterate over graph_nodes_
             for (const auto& node : graph_nodes_) {
               // Access the key (executable entity) and value (graph node)
@@ -103,11 +116,42 @@ GraphExecutor::add_node(rclcpp::node_interfaces::NodeBaseInterface::SharedPtr no
               // topics, then add the subscription to the graph node as a parent
             }
           },
-          [this, weak_group_ptr](const rclcpp::ClientBase::SharedPtr & timer) {
+          [this, weak_group_ptr](const rclcpp::ClientBase::SharedPtr & client) {
             // TODO: Add client to graph
           },
           [this, weak_group_ptr](const rclcpp::TimerBase::SharedPtr & timer) {
-            // TODO: Add timer to graph
+            // Get graph_node object for the subscription
+            auto tmr_node = timer->copy_graph_node();
+
+            // Make list of graph nodes to insert
+            std::list<std::pair<const void*, graph_node_t::SharedPtr>> nodes_to_insert;
+            nodes_to_insert.push_back(std::make_pair(
+              (void*)(timer->get_timer_handle().get()),
+              tmr_node));
+
+            // Iterate over graph_nodes_
+            for (const auto& node : graph_nodes_) {
+              // Access the key (executable entity) and value (graph node)
+              const void* entity = node.first;
+              const graph_node_t::SharedPtr node_ptr = node.second;
+
+              // If node_ptr is subscription and input topic matches one of timer's output
+              // topics, then add the timer to the graph node as a parent.
+              if (std::find(tmr_node->output_topics.begin(), tmr_node->output_topics.end(),
+                  node_ptr->input_topic) != tmr_node->output_topics.end())  {
+                auto node_ptr_copy = std::make_shared<graph_node_t>(*node_ptr);
+                
+                // Link two nodes together
+                tmr_node->children.emplace_back(node_ptr_copy);
+                node_ptr_copy->parent = tmr_node;
+
+                // Add this graph node to the list of nodes to insert
+                nodes_to_insert.push_back(std::make_pair(entity, node_ptr));
+              }
+            }
+            for(const auto& node : nodes_to_insert) {
+              graph_nodes_.insert(node);
+            }
           },
           [this, weak_group_ptr](const rclcpp::Waitable::SharedPtr & waitable) {
             // TODO: Add waitable to graph
