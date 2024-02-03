@@ -33,5 +33,11 @@ GraphExecutable::add_output_topic(
   graph_node_->output_topics.emplace_back(topic_name);
 }
 
+rclcpp::experimental::graph_node_t::SharedPtr
+GraphExecutable::copy_graph_node()
+{
+  return std::make_shared<graph_node_t>(*graph_node_);
+}
+
 }  // namespace experimental
 }  // namespace rclcpp

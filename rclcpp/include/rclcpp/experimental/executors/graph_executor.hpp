@@ -17,7 +17,11 @@
 
 #include <map>
 
+#include "rclcpp/rclcpp.hpp"
+#include "rclcpp/executor.hpp"
 #include "rclcpp/experimental/executors/events_executor/events_executor.hpp"
+#include "rclcpp/experimental/executors/events_executor/priority_events_queue.hpp"
+#include "rclcpp/experimental/graph_executable.hpp"
 
 namespace rclcpp
 {
@@ -80,7 +84,7 @@ public:
   remove_node(std::shared_ptr<rclcpp::Node> node_ptr, bool notify = true) override;
 
 private:
-  std::multimap<void *, graph_node_t::SharedPtr> graph_nodes_;
+  std::multimap<const void *, rclcpp::experimental::graph_node_t::SharedPtr> graph_nodes_;
 };
 
 }  // namespace executors

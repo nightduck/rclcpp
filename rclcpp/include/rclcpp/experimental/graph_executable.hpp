@@ -27,9 +27,11 @@ namespace rclcpp
 namespace experimental
 {
 
-typedef struct graph_node_t
+typedef struct graph_node graph_node_t;
+struct graph_node
 {
   typedef std::shared_ptr<graph_node_t> SharedPtr;
+  typedef std::unique_ptr<graph_node_t> UniquePtr;
 
   std::string name;
   std::string input_topic;
@@ -37,12 +39,13 @@ typedef struct graph_node_t
   graph_node_t::SharedPtr parent;
   std::vector<graph_node_t::SharedPtr> children;
   int wcet;
-} graph_node_t;
+};
 
 class GraphExecutable
 {
 public:
   typedef std::shared_ptr<GraphExecutable> SharedPtr;
+  typedef std::unique_ptr<GraphExecutable> UniquePtr;
 
   RCLCPP_PUBLIC
   void
@@ -54,10 +57,12 @@ public:
   add_output_topic(
     const std::string & topic_name);
 
+  RCLCPP_PUBLIC
+  graph_node_t::SharedPtr
+  copy_graph_node();
+
 private:
   graph_node_t::SharedPtr graph_node_;
-
-  friend class GraphExecutor;
 };
 
 }  // namespace experimental

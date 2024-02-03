@@ -13,7 +13,6 @@
 // limitations under the License.
 
 #include "rclcpp/experimental/executors/graph_executor.hpp"
-#include "rclcpp/experimental/executors/events_executor/priority_events_queue.hpp"
 
 using rclcpp::experimental::executors::GraphExecutor;
 using rclcpp::experimental::executors::EventsExecutor;
@@ -48,27 +47,48 @@ GraphExecutor::add_node(rclcpp::node_interfaces::NodeBaseInterface::SharedPtr no
       if (group_ptr->can_be_taken_from().load()) {
         group_ptr->collect_all_ptrs(
           [this, weak_group_ptr](const rclcpp::SubscriptionBase::SharedPtr & subscription) {
+            std::list<std::pair<void*, graph_node_t::SharedPtr>> nodes_to_insert;
             // Iterate over graph_nodes_
             for (const auto& node : graph_nodes_) {
               // Access the key (executable entity) and value (graph node)
               const void* entity = node.first;
-              const graph_node_t::SharedPtr& node_ptr = node.second;
+              const graph_node_t::SharedPtr node_ptr = node.second;
 
-              // Add subscription to graph
-              graph_nodes_[subscription->get_subscription_handle()] = subscription->graph_node_;
+              // Get graph_node object for the subscription
+              auto sub_node = subscription->copy_graph_node();
 
               // If node_ptr's output topics contain the subscription's topic name, then add the
               // subscription to the graph node as a child. Subscription can be added multiple times
               for (const auto& topic : node_ptr->output_topics) {
                 if (topic == subscription->get_topic_name()) {
-                  node_ptr->children.emplace_back(subscription);
-                  subscription->graph_node_->parent = node_ptr;
+                  // Link two nodes together
+                  node_ptr->children.emplace_back(sub_node);
+                  sub_node->parent = node_ptr;
+
+                  // Add this graph node to the list of nodes to insert
+                  nodes_to_insert.push_back(std::make_pair(
+                    (void*)(subscription->get_subscription_handle().get()),
+                    sub_node));
+
+                  // Get another graph_node for the subscription if it has multiple input sources
+                  sub_node = subscription->copy_graph_node();
                 }
               }
 
               // TODO
               // If node_ptr is subscription and input topic matches one of subscription's output
               // topics, then add the subscription to the graph node as a parent.
+              if (std::find(sub_node->output_topics.begin(), sub_node->output_topics.end(),
+                  node_ptr->input_topic) != sub_node->output_topics.end())  {
+                auto node_ptr_copy = std::make_shared<graph_node_t>(*node_ptr);
+                
+                // Link two nodes together
+                sub_node->children.emplace_back(node_ptr_copy);
+                node_ptr_copy->parent = sub_node;
+
+                // Add this graph node to the list of nodes to insert
+                nodes_to_insert.push_back(std::make_pair(entity, node_ptr_copy));
+              }
             }
           },
           [this, weak_group_ptr](const rclcpp::ServiceBase::SharedPtr & timer) {
