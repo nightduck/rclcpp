@@ -19,12 +19,12 @@ namespace rclcpp
 namespace experimental
 {
 
-void
-GraphExecutable::add_graph_child(
-  const rclcpp::experimental::GraphExecutable::SharedPtr & child)
-{
-  graph_node_->children.emplace_back(child->graph_node_);
-}
+// void
+// GraphExecutable::add_graph_child(
+//   const rclcpp::experimental::GraphExecutable::SharedPtr & child)
+// {
+//   graph_node_->children.emplace_back(child->graph_node_);
+// }
 
 void
 GraphExecutable::add_output_topic(

@@ -20,7 +20,6 @@
 #include <memory>
 
 #include "rclcpp/visibility_control.hpp"
-#include "rclcpp/experimental/executors/graph_executor.hpp"
 
 namespace rclcpp
 {
@@ -47,10 +46,10 @@ public:
   typedef std::shared_ptr<GraphExecutable> SharedPtr;
   typedef std::unique_ptr<GraphExecutable> UniquePtr;
 
-  RCLCPP_PUBLIC
-  void
-  add_graph_child(
-    const GraphExecutable::SharedPtr & child);
+  // RCLCPP_PUBLIC
+  // void
+  // add_graph_child(
+  //   const GraphExecutable::SharedPtr & child);
 
   RCLCPP_PUBLIC
   void

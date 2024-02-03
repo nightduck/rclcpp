@@ -47,7 +47,7 @@ GraphExecutor::add_node(rclcpp::node_interfaces::NodeBaseInterface::SharedPtr no
       if (group_ptr->can_be_taken_from().load()) {
         group_ptr->collect_all_ptrs(
           [this, weak_group_ptr](const rclcpp::SubscriptionBase::SharedPtr & subscription) {
-            std::list<std::pair<void*, graph_node_t::SharedPtr>> nodes_to_insert;
+            std::list<std::pair<const void*, graph_node_t::SharedPtr>> nodes_to_insert;
             // Iterate over graph_nodes_
             for (const auto& node : graph_nodes_) {
               // Access the key (executable entity) and value (graph node)
@@ -87,7 +87,7 @@ GraphExecutor::add_node(rclcpp::node_interfaces::NodeBaseInterface::SharedPtr no
                 node_ptr_copy->parent = sub_node;
 
                 // Add this graph node to the list of nodes to insert
-                nodes_to_insert.push_back(std::make_pair(entity, node_ptr_copy));
+                nodes_to_insert.push_back(std::make_pair(entity, node_ptr));
               }
             }
           },
