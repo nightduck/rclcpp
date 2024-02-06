@@ -32,12 +32,14 @@ struct graph_node
   typedef std::shared_ptr<graph_node_t> SharedPtr;
   typedef std::unique_ptr<graph_node_t> UniquePtr;
 
+  void * key;
   std::string name;
   std::string input_topic;
   std::vector<std::string> output_topics;
   graph_node_t::SharedPtr parent;
   std::vector<graph_node_t::SharedPtr> children;
   int wcet;
+  int priority;
 };
 
 class GraphExecutable

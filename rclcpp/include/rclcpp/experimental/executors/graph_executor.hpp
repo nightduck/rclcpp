@@ -83,7 +83,22 @@ public:
   void
   remove_node(std::shared_ptr<rclcpp::Node> node_ptr, bool notify = true) override;
 
-private:
+  /// Returns the graph
+  RCLCPP_PUBLIC
+  const std::multimap<const void *, rclcpp::experimental::graph_node_t::SharedPtr>
+  get_graph_nodes();
+
+protected:
+  /// Duplicate a graph node and all of its children.
+  RCLCPP_PUBLIC
+  graph_node_t::SharedPtr
+  copy_graph_node_r(const rclcpp::experimental::graph_node_t::SharedPtr & graph_executable);
+
+  /// Recursively add graph_node_t to graph_nodes_
+  RCLCPP_PUBLIC
+  void
+  add_graph_node_r(const void * key, const rclcpp::experimental::graph_node_t::SharedPtr & graph_node);
+
   std::multimap<const void *, rclcpp::experimental::graph_node_t::SharedPtr> graph_nodes_;
 };
 
