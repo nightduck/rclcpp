@@ -32,6 +32,8 @@ struct graph_node
   typedef std::shared_ptr<graph_node_t> SharedPtr;
   typedef std::unique_ptr<graph_node_t> UniquePtr;
 
+  graph_node() : key(nullptr), parent(nullptr), wcet(0), priority(0) {}
+
   void * key;
   std::string name;
   std::string input_topic;
@@ -54,15 +56,47 @@ public:
   //   const GraphExecutable::SharedPtr & child);
 
   RCLCPP_PUBLIC
-  void
-  add_output_topic(
-    const std::string & topic_name);
+  GraphExecutable();
 
   RCLCPP_PUBLIC
   graph_node_t::SharedPtr
   copy_graph_node();
 
-private:
+// TODO: Find a way to protect these methods (or make this class an interface and do the
+// implementation in a separate class like SubscriptionBase or GenericTimer)
+// protected:
+//   template<
+//     typename MessageT,
+//     typename CallbackT,
+//     typename AllocatorT,
+//     typename SubscriptionT,
+//     typename MessageMemoryStrategyT,
+//     typename NodeParametersT,
+//     typename NodeTopicsT
+//   >
+//   friend typename std::shared_ptr<SubscriptionT> rclcpp::create_subscription(
+//     NodeParametersT & node_parameters,
+//     NodeTopicsT & node_topics,
+//     const std::string & topic_name,
+//     const rclcpp::QoS & qos,
+//     CallbackT && callback,
+//     const rclcpp::SubscriptionOptionsWithAllocator<AllocatorT> & options,
+//     typename MessageMemoryStrategyT::SharedPtr msg_mem_strat,
+//     std::initializer_list<rclcpp::PublisherBase::SharedPtr> publishers);
+
+  RCLCPP_PUBLIC
+  void
+  add_output_topic(
+    const std::string & topic_name);
+
+  RCLCPP_PUBLIC
+  void add_input_topic(
+    const std::string & topic_name);
+
+  RCLCPP_PUBLIC
+  void add_key(
+    void * key);
+
   graph_node_t::SharedPtr graph_node_;
 };
 

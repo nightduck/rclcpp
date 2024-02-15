@@ -1,4 +1,4 @@
- // Copyright 2024 Washington University in St Louis
+// Copyright 2024 Washington University in St Louis
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -34,11 +34,11 @@ class GraphExecutor : public EventsExecutor
 {
 public:
   RCLCPP_SMART_PTR_DEFINITIONS(GraphExecutor)
-  
+
   /// Default constructor. See the default constructor for Executor.
   RCLCPP_PUBLIC
   GraphExecutor();
-  
+
   /// Constructor to specify priority callback function.
   RCLCPP_PUBLIC
   explicit GraphExecutor(std::function<int(const ExecutorEvent &)> extract_priority);
@@ -97,7 +97,9 @@ protected:
   /// Recursively add graph_node_t to graph_nodes_
   RCLCPP_PUBLIC
   void
-  add_graph_node_r(const void * key, const rclcpp::experimental::graph_node_t::SharedPtr & graph_node);
+  add_graph_node_r(
+    const void * key,
+    const rclcpp::experimental::graph_node_t::SharedPtr & graph_node);
 
   std::multimap<const void *, rclcpp::experimental::graph_node_t::SharedPtr> graph_nodes_;
 };
