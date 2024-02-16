@@ -87,8 +87,6 @@ GraphExecutor::add_node(rclcpp::node_interfaces::NodeBaseInterface::SharedPtr no
               }
             }
 
-            // TODO: Are the 3 blocks below just equivalent to one iteration of the final loop? If
-            // so, then the final loop can be used to do all the work
             // Insert the subscription into the graph
             graph_nodes_.insert(std::make_pair(sub_node->key, sub_node));
 
@@ -106,26 +104,26 @@ GraphExecutor::add_node(rclcpp::node_interfaces::NodeBaseInterface::SharedPtr no
               sub_node->parent = parent_node;
             }
 
-            // Iterate over rest of parents and copy the subscription for each parent
+            // Iterate over rest of parents and copy the subscription for each
             for(const auto & parent : parents) {
               auto parent_node = parent.second;
               sub_node = copy_graph_node_r(sub_node);
               parent_node->children.emplace_back(sub_node);
               sub_node->parent = parent_node;
-              add_graph_node_r((void *)(subscription.get()), sub_node);
+              add_graph_node_r(sub_node->key, sub_node);
             }
           },
           [this, weak_group_ptr](const rclcpp::ServiceBase::SharedPtr & service) {
             // Iterate over graph_nodes_
-            for (const auto & node : graph_nodes_) {
-              // Access the key (executable entity) and value (graph node)
-              const void * entity = node.first;
-              const graph_node_t::SharedPtr& node_ptr = node.second;
+            // for (const auto & node : graph_nodes_) {
+            //   // Access the key (executable entity) and value (graph node)
+            //   const void * entity = node.first;
+            //   const graph_node_t::SharedPtr& node_ptr = node.second;
 
-              // TODO
-              // If node_ptr is subscription and input topic matches one of subscription's output
-              // topics, then add the subscription to the graph node as a parent
-            }
+            //   // TODO
+            //   // If node_ptr is subscription and input topic matches one of subscription's output
+            //   // topics, then add the subscription to the graph node as a parent
+            // }
           },
           [this, weak_group_ptr](const rclcpp::ClientBase::SharedPtr & client) {
             // TODO: Add client to graph
@@ -182,7 +180,7 @@ GraphExecutor::add_node(rclcpp::node_interfaces::NodeBaseInterface::SharedPtr no
   };
   for (const auto & node : graph_nodes_) {
     // Access the key (executable entity) and value (graph node)
-    const void * entity = node.first;
+    // const void * entity = node.first;
     graph_node_t::SharedPtr node_ptr = node.second;
     if (node_ptr->parent == nullptr) {
       node_ptr->priority = priority;
@@ -224,7 +222,10 @@ GraphExecutor::copy_graph_node_r(
 
   for (auto & child : copy->children) {
     child = copy_graph_node_r(child);
+    child->parent = copy;
   }
+
+  return copy;
 }
 
 void

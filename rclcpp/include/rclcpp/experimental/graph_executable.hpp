@@ -33,6 +33,9 @@ struct graph_node
   typedef std::unique_ptr<graph_node_t> UniquePtr;
 
   graph_node() : key(nullptr), parent(nullptr), wcet(0), priority(0) {}
+  graph_node(const graph_node& other) = default;
+  graph_node& operator=(const graph_node& other) = default;
+
 
   void * key;
   std::string name;
