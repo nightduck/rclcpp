@@ -61,6 +61,11 @@ GraphExecutor::add_node(rclcpp::node_interfaces::NodeBaseInterface::SharedPtr no
               const void * entity = relative_node.first;
               graph_node_t::SharedPtr relative = relative_node.second;
 
+              // If relative (or a copy of it) is already a child of the subscription, then skip
+              if (sub_node->children.find(entity) != sub_node->children.end()) {
+                continue;
+              }
+
               // If relative is subscription and input topic matches one of subscription's output
               // topics, then link the subscription to this relative as a parent (relative is child)
               if (std::find(
@@ -74,7 +79,7 @@ GraphExecutor::add_node(rclcpp::node_interfaces::NodeBaseInterface::SharedPtr no
                 }
 
                 // Link the two nodes
-                sub_node->children.emplace_back(relative);
+                sub_node->children[entity] = relative;
                 relative->parent = sub_node;
               }
 
@@ -100,7 +105,7 @@ GraphExecutor::add_node(rclcpp::node_interfaces::NodeBaseInterface::SharedPtr no
               auto parent = parents.front();
               parents.pop_front();
               auto parent_node = parent.second;
-              parent_node->children.emplace_back(sub_node);
+              parent_node->children[sub_node->key] = sub_node;
               sub_node->parent = parent_node;
             }
 
@@ -108,7 +113,7 @@ GraphExecutor::add_node(rclcpp::node_interfaces::NodeBaseInterface::SharedPtr no
             for(const auto & parent : parents) {
               auto parent_node = parent.second;
               sub_node = copy_graph_node_r(sub_node);
-              parent_node->children.emplace_back(sub_node);
+              parent_node->children[sub_node->key] = sub_node;
               sub_node->parent = parent_node;
               add_graph_node_r(sub_node->key, sub_node);
             }
@@ -141,6 +146,11 @@ GraphExecutor::add_node(rclcpp::node_interfaces::NodeBaseInterface::SharedPtr no
               const void * entity = child_node.first;
               graph_node_t::SharedPtr child = child_node.second;
 
+              // If relative (or a copy of it) is already a child of the subscription, then skip
+              if (tmr_node->children.find(entity) != tmr_node->children.end()) {
+                continue;
+              }
+
               // If child is subscription and input topic matches one of timer's output
               // topics, then link the timer to this child as a parent
               if (std::find(tmr_node->output_topics.begin(), tmr_node->output_topics.end(),
@@ -153,11 +163,17 @@ GraphExecutor::add_node(rclcpp::node_interfaces::NodeBaseInterface::SharedPtr no
                 }
 
                 // Link the two nodes
-                tmr_node->children.emplace_back(child);
+                tmr_node->children[entity] = child;
                 child->parent = tmr_node;
               }
             }
-            add_graph_node_r(tmr_node->key, tmr_node);
+            // Insert the timer into the graph, without recursively adding children
+            graph_nodes_.insert(std::make_pair(tmr_node->key, tmr_node));
+
+            // Add any duplicated children
+            for(const auto & node : children_to_insert) {
+              add_graph_node_r(node.first, node.second);
+            }
           },
           [this, weak_group_ptr](const rclcpp::Waitable::SharedPtr & waitable) {
             // TODO: Add waitable to graph
@@ -175,7 +191,7 @@ GraphExecutor::add_node(rclcpp::node_interfaces::NodeBaseInterface::SharedPtr no
         priority++;
       }
       for (auto & child : node->children) {
-        recurse_priority(child);
+        recurse_priority(child.second);
       }
   };
   for (const auto & node : graph_nodes_) {
@@ -221,8 +237,8 @@ GraphExecutor::copy_graph_node_r(
   auto copy = std::make_shared<graph_node_t>(*graph_executable);
 
   for (auto & child : copy->children) {
-    child = copy_graph_node_r(child);
-    child->parent = copy;
+    child.second = copy_graph_node_r(child.second);
+    child.second->parent = copy;
   }
 
   return copy;
@@ -235,7 +251,7 @@ GraphExecutor::add_graph_node_r(
 {
   graph_nodes_.insert(std::make_pair(key, graph_node));
   for (auto & child : graph_node->children) {
-    add_graph_node_r(child->key, child);
+    add_graph_node_r(child.first, child.second);
   }
 }
 

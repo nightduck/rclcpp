@@ -175,21 +175,151 @@ TEST_F(TestGraphExecutor, add_parent_executables)
     GTEST_SKIP();
   }
 
-  // Create timer publishing to 3 subscriptions
-  auto node = std::make_shared<rclcpp::Node>("node");
   GraphExecutor executor;
+  EXPECT_EQ(executor.get_graph_nodes().size(), 0u);
 
-  // Create 1 subscription, test it gets added to graph_nodes_ correctly
+  // Create 2 subscriptions, one that publishes to the other
+  auto node1 = std::make_shared<rclcpp::Node>("node1");
+  auto pub1 = node1->create_publisher<test_msgs::msg::Empty>("/pub1", rclcpp::SensorDataQoS());
+  auto sub1 = node1->create_subscription<test_msgs::msg::Empty>(
+    "/pub1", rclcpp::SensorDataQoS(),
+    [](test_msgs::msg::Empty::ConstSharedPtr msg) {},
+    {});
+  auto sub2 = node1->create_subscription<test_msgs::msg::Empty>(
+    "/pub2", rclcpp::SensorDataQoS(),
+    [](test_msgs::msg::Empty::ConstSharedPtr msg) {},
+    {pub1});
+  executor.add_node(node1);
+  
+  // Executor should add 3 entities: the 2 subscriptions and the parameter events sub
+  // Sub2 is parent to sub2, sub1 is parentless for now
+  rclcpp::experimental::graph_node_t::SharedPtr sub1_node;
+  rclcpp::experimental::graph_node_t::SharedPtr sub2_node;
+  EXPECT_EQ(executor.get_graph_nodes().size(), 3u);
+  if (executor.get_graph_nodes().count(sub2->get_subscription_handle().get()) == 1) {
+    sub2_node = executor.get_graph_nodes().find(sub2->get_subscription_handle().get())->second;
+    EXPECT_EQ(sub2_node->parent, nullptr);      // Sub1 is orphaned
+    EXPECT_EQ(sub2_node->input_topic, "/pub2"); // Sub1 has correct input topic
+  } else if (executor.get_graph_nodes().count(sub2->get_subscription_handle().get()) > 1) {
+    EXPECT_TRUE(false) << "Subscription found more than once in graph_nodes_";
+  } else {
+    EXPECT_TRUE(false) << "Subscription not found in graph_nodes_";
+  }
+  if (executor.get_graph_nodes().count(sub1->get_subscription_handle().get()) == 1) {
+    sub1_node = executor.get_graph_nodes().find(sub1->get_subscription_handle().get())->second;
+    EXPECT_EQ(sub1_node->parent, sub2_node);    // Sub1 is child of sub2
+    EXPECT_TRUE(sub1_node->children.empty());   // Sub1 is childless
+    EXPECT_TRUE(sub2_node->children.find(sub1_node->key) != sub2_node->children.end());// Sub1 is in sub2's children
+    EXPECT_EQ(sub1_node->input_topic, "/pub1"); // Sub1 has correct input topic
+  } else if (executor.get_graph_nodes().count(sub2->get_subscription_handle().get()) > 1) {
+    EXPECT_TRUE(false) << "Subscription found more than once in graph_nodes_";
+  } else {
+    EXPECT_TRUE(false) << "Subscription not found in graph_nodes_";
+  }
 
-  // Add 2nd subscription that publishes to 1st subscription's topic, test that it's added
+  // Create timer that publishes to lead subscription's topic
+  auto node2 = std::make_shared<rclcpp::Node>("node2");
+  auto pub2_a = node2->create_publisher<test_msgs::msg::Empty>("/pub2", rclcpp::SensorDataQoS());
+  auto tmr1 = node2->create_timer(1s, []() {}, nullptr, {pub2_a});
+  executor.add_node(node2);
 
-  // Create timer that publishes to 2nd subscription's topic, test it gets added normally
+  // Executor should add 2 entities: the timer and the parameter events sub
+  EXPECT_EQ(executor.get_graph_nodes().size(), 5u);
+  rclcpp::experimental::graph_node_t::SharedPtr tmr1_node;
+  if (executor.get_graph_nodes().count(tmr1.get()) == 1) {
+    tmr1_node = executor.get_graph_nodes().find(tmr1.get())->second;
+    EXPECT_EQ(tmr1_node->parent, nullptr);  // Tmr1 is orphaned
+    EXPECT_TRUE(tmr1_node->children.find(sub2_node->key) != tmr1_node->children.end()); // Sub2 is in tmr1's children
+    EXPECT_TRUE(std::find(                  // "/pub2" is in tmr1's output_topics
+      tmr1_node->output_topics.begin(), tmr1_node->output_topics.end(), "/pub2") != tmr1_node->output_topics.end());
+    EXPECT_EQ(tmr1_node->input_topic, ""); // Sub1 has correct input topic
+  } else if (executor.get_graph_nodes().count(tmr1.get()) > 1) {
+    EXPECT_TRUE(false) << "Timer found more than once in graph_nodes_";
+  } else {
+    EXPECT_TRUE(false) << "Timer not found in graph_nodes_";
+  }
+  // Confirm downstream executables are not duplicated yet
+  EXPECT_EQ(executor.get_graph_nodes().count(sub1->get_subscription_handle().get()), 1);
+  EXPECT_EQ(executor.get_graph_nodes().count(sub2->get_subscription_handle().get()), 1);
 
-  // Create 3rd subscription that publishes to 2nd subscription's topic, test it gets added and
+  // Create 3rd subscription that publishes to lead subscription's topic, test it gets added and
   // downstream executables are duplicated
+  auto node3 = std::make_shared<rclcpp::Node>("node3");
+  auto pub2_b = node3->create_publisher<test_msgs::msg::Empty>("/pub2", rclcpp::SensorDataQoS());
+  auto sub3 = node3->create_subscription<test_msgs::msg::Empty>(
+    "/pub3", rclcpp::SensorDataQoS(),
+    [](test_msgs::msg::Empty::ConstSharedPtr msg) {},
+    {pub2_b});
+  executor.add_node(node3);
+
+  // Executor should add 4 entities: sub3, copies of sub1 and sub2, and the parameter events sub
+  EXPECT_EQ(executor.get_graph_nodes().size(), 9u);
+  rclcpp::experimental::graph_node_t::SharedPtr sub3_node;
+  if (executor.get_graph_nodes().count(sub3->get_subscription_handle().get()) == 1) {
+    sub3_node = executor.get_graph_nodes().find(sub3->get_subscription_handle().get())->second;
+    EXPECT_EQ(sub3_node->parent, nullptr);  // sub3 is orphaned
+    EXPECT_TRUE(sub3_node->children.find(sub2_node->key) != sub3_node->children.end()); // Sub2 is in sub3's children
+    EXPECT_TRUE(std::find(                  // "/pub2" is in tmr1's output_topics
+      sub3_node->output_topics.begin(), sub3_node->output_topics.end(), "/pub2") != sub3_node->output_topics.end());
+    EXPECT_EQ(sub3_node->input_topic, "/pub3"); // Sub3 has correct input topic
+  } else if (executor.get_graph_nodes().count(sub3->get_subscription_handle().get()) > 1) {
+    EXPECT_TRUE(false) << "Subscription found more than once in graph_nodes_";
+  } else {
+    EXPECT_TRUE(false) << "Subscription not found in graph_nodes_";
+  }
+
+  // Confirm downstream executables are duplicated
+  EXPECT_EQ(executor.get_graph_nodes().count(sub1->get_subscription_handle().get()), 2);
+  EXPECT_EQ(executor.get_graph_nodes().count(sub2->get_subscription_handle().get()), 2);
 
   // Create 2nd timer that publishes to 2nd subscription's topic, test it gets added and that
   // downstream executables are duplicated
+  auto node4 = std::make_shared<rclcpp::Node>("node4");
+  auto pub2_c = node4->create_publisher<test_msgs::msg::Empty>("/pub2", rclcpp::SensorDataQoS());
+  auto tmr2 = node4->create_timer(1s, []() {}, nullptr, {pub2_c});
+  executor.add_node(node4);
+
+  // Executor should add 4 entities: tmr2, copies of sub2 and sub3, and the parameter events sub
+  EXPECT_EQ(executor.get_graph_nodes().size(), 13u);
+  rclcpp::experimental::graph_node_t::SharedPtr tmr2_node;
+  if (executor.get_graph_nodes().count(tmr2.get()) == 1) {
+    tmr2_node = executor.get_graph_nodes().find(tmr2.get())->second;
+    EXPECT_EQ(tmr2_node->parent, nullptr);  // Tmr2 is orphaned
+    EXPECT_TRUE(tmr2_node->children.find(sub2_node->key) != tmr2_node->children.end()); // Sub3 is in tmr2's children
+    EXPECT_TRUE(std::find(                  // "/pub2" is in tmr1's output_topics
+      tmr2_node->output_topics.begin(), tmr2_node->output_topics.end(), "/pub2") != tmr2_node->output_topics.end());
+    EXPECT_EQ(tmr2_node->input_topic, ""); // Sub1 has correct input topic
+  } else if (executor.get_graph_nodes().count(tmr2.get()) > 1) {
+    EXPECT_TRUE(false) << "TImer found more than once in graph_nodes_";
+  } else {
+    EXPECT_TRUE(false) << "Timer not found in graph_nodes_";
+  }
+
+  // Confirm downstream executables are duplicated
+  EXPECT_EQ(executor.get_graph_nodes().count(sub1->get_subscription_handle().get()), 3);
+  EXPECT_EQ(executor.get_graph_nodes().count(sub2->get_subscription_handle().get()), 3);
+
+  // Confirm that each parent has a different copy of the same children and grandchildren
+  EXPECT_TRUE(tmr1_node->children[sub2_node->key] != sub3_node->children[sub2_node->key]);
+  EXPECT_TRUE(sub3_node->children[sub2_node->key] != tmr2_node->children[sub2_node->key]);
+  EXPECT_TRUE(tmr2_node->children[sub2_node->key] != tmr1_node->children[sub2_node->key]);
+  EXPECT_TRUE(tmr1_node->children[sub2_node->key]->children[sub1_node->key]
+      != sub3_node->children[sub2_node->key]->children[sub1_node->key]);
+  EXPECT_TRUE(sub3_node->children[sub2_node->key]->children[sub1_node->key]
+      != tmr2_node->children[sub2_node->key]->children[sub1_node->key]);
+  EXPECT_TRUE(tmr2_node->children[sub2_node->key]->children[sub1_node->key]
+      != tmr1_node->children[sub2_node->key]->children[sub1_node->key]);
+
+  // Be sure parents and children point at each other
+  EXPECT_EQ(tmr1_node->children[sub2_node->key]->parent, tmr1_node);
+  EXPECT_EQ(tmr2_node->children[sub2_node->key]->parent, tmr2_node);
+  EXPECT_EQ(sub3_node->children[sub2_node->key]->parent, sub3_node);
+  EXPECT_EQ(tmr1_node->children[sub2_node->key]->children[sub1_node->key]->parent,
+    tmr1_node->children[sub2_node->key]);
+  EXPECT_EQ(tmr2_node->children[sub2_node->key]->children[sub1_node->key]->parent,
+    tmr2_node->children[sub2_node->key]);
+  EXPECT_EQ(sub3_node->children[sub2_node->key]->children[sub1_node->key]->parent,
+    sub3_node->children[sub2_node->key]);
 
   bool spin_exited = false;
   std::thread spinner([&spin_exited, &executor, this]() {
@@ -232,8 +362,10 @@ TEST_F(TestGraphExecutor, add_child_executables)
   auto tmr1 = node1->create_timer(1s, []() {}, nullptr, {pub1});
   rclcpp::experimental::graph_node_t::SharedPtr tmr_node;
   executor.add_node(node1);
+  // Executor should have 2 entities: the timer and the parameter events sub that every node gets
   EXPECT_EQ(executor.get_graph_nodes().size(), 2u);
   if (executor.get_graph_nodes().count(tmr1.get()) == 1) {
+    // Verify that the timer is added and is orphaned and childless
     tmr_node = executor.get_graph_nodes().find(tmr1.get())->second;
     EXPECT_EQ(tmr_node->parent, nullptr);
     EXPECT_TRUE(tmr_node->children.empty());
@@ -257,13 +389,15 @@ TEST_F(TestGraphExecutor, add_child_executables)
   rclcpp::experimental::graph_node_t::SharedPtr sub1_node;
   rclcpp::experimental::graph_node_t::SharedPtr sub2_node;
   executor.add_node(node2);
+
+  // Executor should add 3 entities: the 2 subscriptions and the parameter events sub
   EXPECT_EQ(executor.get_graph_nodes().size(), 5u);
 
   if (executor.get_graph_nodes().count(sub1->get_subscription_handle().get()) == 1) {
     sub1_node = executor.get_graph_nodes().find(sub1->get_subscription_handle().get())->second;
-    EXPECT_EQ(sub1_node->parent, tmr_node);
-    EXPECT_TRUE(sub1_node->children.empty());
-    EXPECT_EQ(sub1_node->input_topic, "/pub1");
+    EXPECT_EQ(sub1_node->parent, tmr_node);     // Sub linked to timer
+    EXPECT_TRUE(sub1_node->children.empty());   // Sub is childless
+    EXPECT_EQ(sub1_node->input_topic, "/pub1"); // Sub has correct input topic
   } else if (executor.get_graph_nodes().count(sub1->get_subscription_handle().get()) > 1) {
     EXPECT_TRUE(false) << "Subscription found more than once in graph_nodes_";
   } else {
@@ -271,9 +405,9 @@ TEST_F(TestGraphExecutor, add_child_executables)
   }
   if (executor.get_graph_nodes().count(sub2->get_subscription_handle().get()) == 1) {
     sub2_node = executor.get_graph_nodes().find(sub2->get_subscription_handle().get())->second;
-    EXPECT_EQ(sub2_node->parent, tmr_node);
-    EXPECT_TRUE(sub2_node->children.empty());
-    EXPECT_EQ(sub2_node->input_topic, "/pub1");
+    EXPECT_EQ(sub2_node->parent, tmr_node);     // Sub linked to timer
+    EXPECT_TRUE(sub2_node->children.empty());   // Sub is childless
+    EXPECT_EQ(sub2_node->input_topic, "/pub1"); // Sub has correct input topic
   } else if (executor.get_graph_nodes().count(sub2->get_subscription_handle().get()) > 1) {
     EXPECT_TRUE(false) << "Subscription found more than once in graph_nodes_";
   } else {
@@ -288,6 +422,8 @@ TEST_F(TestGraphExecutor, add_child_executables)
     [](test_msgs::msg::Empty::ConstSharedPtr msg) {},
     {});
   executor.add_node(node3);
+
+  // Executor should add 3 entities: the 2 copies of the subscription and the parameter events sub
   EXPECT_EQ(executor.get_graph_nodes().size(), 8u);
 
   // Check that sub3 is added twice
@@ -295,13 +431,13 @@ TEST_F(TestGraphExecutor, add_child_executables)
     EXPECT_TRUE(false) << "Subscription found in graph_nodes_ only once";
   } else if (executor.get_graph_nodes().count(sub3->get_subscription_handle().get()) == 2) {
     auto it = executor.get_graph_nodes().find(sub3->get_subscription_handle().get());
-    auto sub3_node_a = it->second;
+    auto sub3_node_a = it->second;      // Get pointer to both copies of sub3
     auto sub3_node_b = (++it)->second;
-    EXPECT_EQ(sub3_node_a->input_topic, "/pub2");
-    EXPECT_TRUE(sub3_node_a->children.empty());
+    EXPECT_EQ(sub3_node_a->input_topic, "/pub2"); // Both copies have correct input topic
     EXPECT_EQ(sub3_node_b->input_topic, "/pub2");
+    EXPECT_TRUE(sub3_node_a->children.empty());   // Both copies are childless
     EXPECT_TRUE(sub3_node_b->children.empty());
-    if (sub3_node_a->parent != sub1_node) {
+    if (sub3_node_a->parent != sub1_node) {       // Both copies have different parents
       EXPECT_EQ(sub3_node_a->parent, sub2_node);
       EXPECT_EQ(sub3_node_b->parent, sub1_node) << "Duplicated subscription doesn't have a different parent";
     } else {
@@ -309,12 +445,10 @@ TEST_F(TestGraphExecutor, add_child_executables)
       EXPECT_EQ(sub3_node_b->parent, sub2_node) << "Duplicated subscription doesn't have a different parent";
     }
     // Check that each parent is pointing at the child pointing at it
-    auto parent_a_vec = sub3_node_a->parent->children;
-    auto parent_b_vec = sub3_node_b->parent->children;
-    EXPECT_TRUE(std::find(parent_a_vec.begin(), parent_a_vec.end(), sub3_node_a) != parent_a_vec.end());
-    EXPECT_TRUE(std::find(parent_b_vec.begin(), parent_b_vec.end(), sub3_node_b) != parent_b_vec.end());
-    EXPECT_FALSE(std::find(parent_a_vec.begin(), parent_a_vec.end(), sub3_node_b) != parent_a_vec.end());
-    EXPECT_FALSE(std::find(parent_b_vec.begin(), parent_b_vec.end(), sub3_node_a) != parent_b_vec.end());
+    auto parent_a_children = sub3_node_a->parent->children;
+    auto parent_b_children = sub3_node_b->parent->children;
+    EXPECT_EQ(parent_a_children[sub3_node_a->key], sub3_node_a);
+    EXPECT_EQ(parent_b_children[sub3_node_b->key], sub3_node_b);
   } else if (executor.get_graph_nodes().count(sub3->get_subscription_handle().get()) > 2) {
     EXPECT_TRUE(false) << "Subscription found more than twice in graph_nodes_";
   } else {
@@ -330,12 +464,13 @@ TEST_F(TestGraphExecutor, add_child_executables)
   rclcpp::experimental::graph_node_t::SharedPtr sub4_node;
   executor.add_node(node4);
 
+  // Executor should add 2 entities: the subscription and the parameter events sub
   EXPECT_EQ(executor.get_graph_nodes().size(), 10u);
   if (executor.get_graph_nodes().count(sub4->get_subscription_handle().get()) == 1) {
     sub4_node = executor.get_graph_nodes().find(sub4->get_subscription_handle().get())->second;
-    EXPECT_EQ(sub4_node->parent, nullptr);
-    EXPECT_TRUE(sub4_node->children.empty());
-    EXPECT_EQ(sub4_node->input_topic, "/pub3");
+    EXPECT_EQ(sub4_node->parent, nullptr);      // Sub is orphaned
+    EXPECT_TRUE(sub4_node->children.empty());   // Sub is childless
+    EXPECT_EQ(sub4_node->input_topic, "/pub3"); // Sub has correct input topic
   } else if (executor.get_graph_nodes().count(sub4->get_subscription_handle().get()) > 1) {
     EXPECT_TRUE(false) << "Subscription found more than once in graph_nodes_";
   } else {
@@ -353,16 +488,18 @@ TEST_F(TestGraphExecutor, add_child_executables)
     {pub3});
   executor.add_node(node5);
 
+  // Executor should add 4 entities: the 2 copies of the subscription, a duplicate of sub4, and the
+  // parameter events sub
+  EXPECT_EQ(executor.get_graph_nodes().size(), 14u);
   rclcpp::experimental::graph_node_t::SharedPtr sub5_node_a;
   rclcpp::experimental::graph_node_t::SharedPtr sub5_node_b;
-  EXPECT_EQ(executor.get_graph_nodes().size(), 14u);
   if (executor.get_graph_nodes().count(sub5->get_subscription_handle().get()) == 2) {
     auto it = executor.get_graph_nodes().find(sub5->get_subscription_handle().get());
-    sub5_node_a = it->second;
+    sub5_node_a = it->second;     // Get pointer to both copies of sub5
     sub5_node_b = (++it)->second;
-    EXPECT_EQ(sub5_node_a->input_topic, "/pub2");
+    EXPECT_EQ(sub5_node_a->input_topic, "/pub2"); // Both copies have correct input topic
     EXPECT_EQ(sub5_node_b->input_topic, "/pub2");
-    if (sub5_node_a->parent != sub1_node) {
+    if (sub5_node_a->parent != sub1_node) {       // Both copies have different parents
       EXPECT_EQ(sub5_node_a->parent, sub2_node);
       EXPECT_EQ(sub5_node_b->parent, sub1_node) << "Duplicated subscription doesn't have a different parent";
     } else {
@@ -371,23 +508,23 @@ TEST_F(TestGraphExecutor, add_child_executables)
     }
 
     // Check that each parent is pointing at the child pointing at it
-    auto parent_a_vec = sub5_node_a->parent->children;
-    auto parent_b_vec = sub5_node_b->parent->children;
-    EXPECT_TRUE(std::find(parent_a_vec.begin(), parent_a_vec.end(), sub5_node_a) != parent_a_vec.end());
-    EXPECT_TRUE(std::find(parent_b_vec.begin(), parent_b_vec.end(), sub5_node_b) != parent_b_vec.end());
-    EXPECT_FALSE(std::find(parent_a_vec.begin(), parent_a_vec.end(), sub5_node_b) != parent_a_vec.end());
-    EXPECT_FALSE(std::find(parent_b_vec.begin(), parent_b_vec.end(), sub5_node_a) != parent_b_vec.end());
+    auto parent_a_children = sub5_node_a->parent->children;
+    auto parent_b_children = sub5_node_b->parent->children;
+    EXPECT_EQ(parent_a_children[sub5_node_a->key], sub5_node_a);
+    EXPECT_EQ(parent_b_children[sub5_node_b->key], sub5_node_b);
   } else {
     EXPECT_EQ(executor.get_graph_nodes().count(sub5->get_subscription_handle().get()), 2) << "Subscription not in graph nodes twice";
   }
 
   if (executor.get_graph_nodes().count(sub4->get_subscription_handle().get()) == 2) {
     auto it = executor.get_graph_nodes().find(sub4->get_subscription_handle().get());
-    auto sub4_node_a = it->second;
+    auto sub4_node_a = it->second;      // Get pointer to both copies of sub4
     auto sub4_node_b = (++it)->second;
-    EXPECT_EQ(sub4_node_a->input_topic, "/pub3");
+    EXPECT_EQ(sub4_node_a->input_topic, "/pub3"); // Both copies have correct input topic
     EXPECT_EQ(sub4_node_b->input_topic, "/pub3");
-    if (sub4_node_a->parent != sub5_node_a) {
+    EXPECT_TRUE(sub4_node_a->children.empty());   // Both copies are childless
+    EXPECT_TRUE(sub4_node_b->children.empty());
+    if (sub4_node_a->parent != sub5_node_a) {     // Both copies have different parents
       EXPECT_EQ(sub4_node_a->parent, sub5_node_b);
       EXPECT_EQ(sub4_node_b->parent, sub5_node_a) << "Duplicated subscription doesn't have a different parent";
     } else {
@@ -396,12 +533,10 @@ TEST_F(TestGraphExecutor, add_child_executables)
     }
 
     // Check that each parent is pointing at the child pointing at it
-    auto parent_a_vec = sub4_node_a->parent->children;
-    auto parent_b_vec = sub4_node_b->parent->children;
-    EXPECT_TRUE(std::find(parent_a_vec.begin(), parent_a_vec.end(), sub4_node_a) != parent_a_vec.end());
-    EXPECT_TRUE(std::find(parent_b_vec.begin(), parent_b_vec.end(), sub4_node_b) != parent_b_vec.end());
-    EXPECT_FALSE(std::find(parent_a_vec.begin(), parent_a_vec.end(), sub4_node_b) != parent_a_vec.end());
-    EXPECT_FALSE(std::find(parent_b_vec.begin(), parent_b_vec.end(), sub4_node_a) != parent_b_vec.end());
+    auto parent_a_children = sub4_node_a->parent->children;
+    auto parent_b_children = sub4_node_b->parent->children;
+    EXPECT_EQ(parent_a_children[sub4_node_a->key], sub4_node_a);
+    EXPECT_EQ(parent_b_children[sub4_node_b->key], sub4_node_b);
   } else {
     EXPECT_EQ(executor.get_graph_nodes().count(sub4->get_subscription_handle().get()), 2) << "Child subscription not duplicated";
   }
@@ -431,16 +566,3 @@ TEST_F(TestGraphExecutor, add_child_executables)
 
   EXPECT_TRUE(spin_exited);
 }
-
-// Subscription conditional paths:
-// x1. Subscription has no relation to existing nodes : insert normally
-// x2. Subscription is child of existing node : insert normally, w/ relation to parent
-// x3. Subscription is child of multiple existing nodes: duplicate child node
-// x4. Subscription is parent of existing orphan node: insert w/ relation to parent
-// x5. Subscription is parent of existing node: duplicate child node and downstream
-
-// Timer conditional paths:
-// Always gets inserted once
-// x1. Timer has no relation to existing nodes
-// x2. Timer is parent of existing orphan node: insert normally, w/ relation to parent
-// x3. Timer is parent of existing node: duplicate child node and downstream nodes

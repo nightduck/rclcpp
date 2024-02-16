@@ -16,6 +16,7 @@
 #define RCLCPP__EXPERIMENTAL__GRAPH_EXECUTABLE_HPP_
 
 #include <string>
+#include <map>
 #include <vector>
 #include <memory>
 
@@ -42,7 +43,7 @@ struct graph_node
   std::string input_topic;
   std::vector<std::string> output_topics;
   graph_node_t::SharedPtr parent;
-  std::vector<graph_node_t::SharedPtr> children;
+  std::map<const void*, graph_node_t::SharedPtr> children;
   int wcet;
   int priority;
 };
