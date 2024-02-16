@@ -184,15 +184,16 @@ GraphExecutor::add_node(rclcpp::node_interfaces::NodeBaseInterface::SharedPtr no
   // TODO: Make this customizable
   // Calculate ordering of graph and assign priorities or deadlines
   int priority = 0;
-  std::function<void(const graph_node_t::SharedPtr)> recurse_priority =
-    [this, &priority, &recurse_priority](const graph_node_t::SharedPtr & node) {
+  std::function<int(const graph_node_t::SharedPtr,int)> recurse_priority =
+    [this, &recurse_priority](const graph_node_t::SharedPtr & node, int priority) {
       if (node->parent == nullptr) {
         node->priority = priority;
         priority++;
       }
       for (auto & child : node->children) {
-        recurse_priority(child.second);
+        priority = recurse_priority(child.second, priority);
       }
+      return priority;
   };
   for (const auto & node : graph_nodes_) {
     // Access the key (executable entity) and value (graph node)
@@ -201,7 +202,7 @@ GraphExecutor::add_node(rclcpp::node_interfaces::NodeBaseInterface::SharedPtr no
     if (node_ptr->parent == nullptr) {
       node_ptr->priority = priority;
       priority++;
-      recurse_priority(node_ptr);
+      priority = recurse_priority(node_ptr, priority);
     }
   }
 }
