@@ -66,8 +66,10 @@ public:
   RCLCPP_PUBLIC
   explicit PriorityEventsQueue(
     std::function<int(const ExecutorEvent &)> extract_priority)
-  : extract_priority_(extract_priority) {
-    static_assert(std::is_invocable_r_v<int, decltype(extract_priority), const ExecutorEvent &>,
+  : extract_priority_(extract_priority)
+  {
+    static_assert(
+      std::is_invocable_r_v<int, decltype(extract_priority), const ExecutorEvent &>,
       "extract_priority must be a callable with signature int(const ExecutorEvent &)");
   }
 
