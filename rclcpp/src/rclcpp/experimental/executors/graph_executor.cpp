@@ -107,6 +107,7 @@ GraphExecutor::add_node(rclcpp::node_interfaces::NodeBaseInterface::SharedPtr no
               auto parent_node = parent.second;
               parent_node->children[sub_node->key] = sub_node;
               sub_node->parent = parent_node;
+              sub_node->period = parent_node->period;
             }
 
             // Iterate over rest of parents and copy the subscription for each
@@ -115,6 +116,7 @@ GraphExecutor::add_node(rclcpp::node_interfaces::NodeBaseInterface::SharedPtr no
               sub_node = copy_graph_node_r(sub_node);
               parent_node->children[sub_node->key] = sub_node;
               sub_node->parent = parent_node;
+              sub_node->period = parent_node->period;
               add_graph_node_r(sub_node->key, sub_node);
             }
           },
@@ -139,6 +141,7 @@ GraphExecutor::add_node(rclcpp::node_interfaces::NodeBaseInterface::SharedPtr no
             // Get graph_node object for the subscription
             auto tmr_node = timer->copy_graph_node();
             tmr_node->key = (void *)timer.get();
+            rcl_timer_get_period(timer->get_timer_handle().get(), &tmr_node->period);
 
             // Iterate over graph_nodes_
             for (const auto & child_node : graph_nodes_) {
@@ -165,6 +168,7 @@ GraphExecutor::add_node(rclcpp::node_interfaces::NodeBaseInterface::SharedPtr no
                 // Link the two nodes
                 tmr_node->children[entity] = child;
                 child->parent = tmr_node;
+                child->period = tmr_node->period;
               }
             }
             // Insert the timer into the graph, without recursively adding children
@@ -181,30 +185,8 @@ GraphExecutor::add_node(rclcpp::node_interfaces::NodeBaseInterface::SharedPtr no
       }
     });
 
-  // TODO: Make this customizable
-  // Calculate ordering of graph and assign priorities or deadlines
-  int priority = 0;
-  std::function<int(const graph_node_t::SharedPtr,int)> recurse_priority =
-    [this, &recurse_priority](const graph_node_t::SharedPtr & node, int priority) {
-      if (node->parent == nullptr) {
-        node->priority = priority;
-        priority++;
-      }
-      for (auto & child : node->children) {
-        priority = recurse_priority(child.second, priority);
-      }
-      return priority;
-  };
-  for (const auto & node : graph_nodes_) {
-    // Access the key (executable entity) and value (graph node)
-    // const void * entity = node.first;
-    graph_node_t::SharedPtr node_ptr = node.second;
-    if (node_ptr->parent == nullptr) {
-      node_ptr->priority = priority;
-      priority++;
-      priority = recurse_priority(node_ptr, priority);
-    }
-  }
+  // TODO: Remove?
+  assign_priority();
 }
 
 void
@@ -240,6 +222,7 @@ GraphExecutor::copy_graph_node_r(
   for (auto & child : copy->children) {
     child.second = copy_graph_node_r(child.second);
     child.second->parent = copy;
+    child.second->period = copy->period;
   }
 
   return copy;
@@ -260,4 +243,65 @@ const std::multimap<const void *, rclcpp::experimental::graph_node_t::SharedPtr>
 GraphExecutor::get_graph_nodes()
 {
   return graph_nodes_;
+}
+
+// void
+// GraphExecutor::assign_priority()
+// {
+//   int priority = 0;
+//   for (const auto & node : graph_nodes_) {
+//     // Access the key (executable entity) and value (graph node)
+//     // const void * entity = node.first;
+//     graph_node_t::SharedPtr node_ptr = node.second;
+//     if (node_ptr->parent == nullptr) {
+//       node_ptr->priority = priority;
+//       priority++;
+//       priority = recursively_increment_priority(node_ptr, priority);
+//     }
+//   }
+// }
+
+void GraphExecutor::assign_priority()
+{
+  // Extract all members of graph_nodes_ that don't have parents
+  std::vector<graph_node_t::SharedPtr> nodesWithoutParents;
+  for (const auto& node : graph_nodes_)
+  {
+    if (node.second->parent == nullptr)
+    {
+      nodesWithoutParents.push_back(node.second);
+    }
+  }
+
+  // Sort the timers by shortest to longest period, orphaned subscriptions are first
+  std::sort(nodesWithoutParents.begin(), nodesWithoutParents.end(), [](const graph_node_t::SharedPtr& a, const graph_node_t::SharedPtr& b) {
+    if (a->input_topic != "") {
+      return true;
+    } else if (b->input_topic != "") {
+      return false;
+    } else {
+      return a->period < b->period;
+    }
+  });
+
+  // Call recursively_increment_priority on each element of the list
+  int priority = 0;
+  for (const auto& node : nodesWithoutParents)
+  {
+    priority = recursively_increment_priority(node, priority);
+  }
+  
+}
+
+int
+GraphExecutor::recursively_increment_priority(
+  const graph_node_t::SharedPtr & graph_node,
+  int priority)
+{
+  graph_node->priority = priority;
+  priority++;
+  for (auto & child : graph_node->children) {
+    priority = recursively_increment_priority(child.second, priority);
+  }
+  return priority;
 }

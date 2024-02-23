@@ -88,6 +88,11 @@ public:
   const std::multimap<const void *, rclcpp::experimental::graph_node_t::SharedPtr>
   get_graph_nodes();
 
+  /// Assigns priority to graph nodes
+  RCLCPP_PUBLIC
+  void
+  assign_priority();
+
 protected:
   /// Duplicate a graph node and all of its children.
   RCLCPP_PUBLIC
@@ -100,6 +105,13 @@ protected:
   add_graph_node_r(
     const void * key,
     const rclcpp::experimental::graph_node_t::SharedPtr & graph_node);
+
+  /// Recursively walk down tree in graph and increment priority as we go deeper
+  RCLCPP_PUBLIC
+  int
+  recursively_increment_priority(
+    const rclcpp::experimental::graph_node_t::SharedPtr & graph_node,
+    int priority);
 
   std::multimap<const void *, rclcpp::experimental::graph_node_t::SharedPtr> graph_nodes_;
 };
