@@ -12,10 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef RCLCPP__EXPERIMENTAL__GRAPH_EXECUTOR_HPP_
-#define RCLCPP__EXPERIMENTAL__GRAPH_EXECUTOR_HPP_
+#ifndef RCLCPP__EXPERIMENTAL__EXECUTORS__GRAPH_EXECUTOR_HPP_
+#define RCLCPP__EXPERIMENTAL__EXECUTORS__GRAPH_EXECUTOR_HPP_
 
 #include <map>
+#include <memory>
 
 #include "rclcpp/rclcpp.hpp"
 #include "rclcpp/executor.hpp"
@@ -120,4 +121,4 @@ protected:
 }  // namespace experimental
 }  // namespace rclcpp
 
-#endif  // RCLCPP__EXPERIMENTAL__GRAPH_EXECUTOR_HPP_
+#endif  // RCLCPP__EXPERIMENTAL__EXECUTORS__GRAPH_EXECUTOR_HPP_

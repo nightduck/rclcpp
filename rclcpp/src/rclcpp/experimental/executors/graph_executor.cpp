@@ -44,7 +44,7 @@ GraphExecutor::add_node(rclcpp::node_interfaces::NodeBaseInterface::SharedPtr no
       if (!group_ptr) {
         return;
       }
-      // TODO: Reassess variable names, esp node_ptr, and node_ptr_copy
+      // TODO(nightduck): Reassess variable names, esp node_ptr, and node_ptr_copy
       if (group_ptr->can_be_taken_from().load()) {
         group_ptr->collect_all_ptrs(
           [this, weak_group_ptr](const rclcpp::SubscriptionBase::SharedPtr & subscription) {
@@ -53,7 +53,7 @@ GraphExecutor::add_node(rclcpp::node_interfaces::NodeBaseInterface::SharedPtr no
 
             // Get graph_node object for the subscription, and insert one copy into graph
             auto sub_node = subscription->copy_graph_node();
-            sub_node->key = (void *)subscription->get_subscription_handle().get();
+            sub_node->key = reinterpret_cast<void *>(subscription->get_subscription_handle().get());
 
             // Iterate over graph_nodes
             for (const auto & relative_node : graph_nodes_) {
@@ -70,8 +70,8 @@ GraphExecutor::add_node(rclcpp::node_interfaces::NodeBaseInterface::SharedPtr no
               // topics, then link the subscription to this relative as a parent (relative is child)
               if (std::find(
                 sub_node->output_topics.begin(), sub_node->output_topics.end(),
-                relative->input_topic) != sub_node->output_topics.end())  {
-                
+                relative->input_topic) != sub_node->output_topics.end())
+              {
                 // Add a relative_copy object for every instance of the subscription in the graph
                 if (relative->parent != nullptr) {  // Create copy if parent already exists
                   relative = copy_graph_node_r(relative);
@@ -96,10 +96,10 @@ GraphExecutor::add_node(rclcpp::node_interfaces::NodeBaseInterface::SharedPtr no
             graph_nodes_.insert(std::make_pair(sub_node->key, sub_node));
 
             // Add all contents of children_to_insert to graph_nodes_
-            for(const auto & node : children_to_insert) {
+            for (const auto & node : children_to_insert) {
               add_graph_node_r(node.first, node.second);
             }
-            
+
             // Pop one parent from parents and link it to the subscription
             if (!parents.empty()) {
               auto parent = parents.front();
@@ -111,7 +111,7 @@ GraphExecutor::add_node(rclcpp::node_interfaces::NodeBaseInterface::SharedPtr no
             }
 
             // Iterate over rest of parents and copy the subscription for each
-            for(const auto & parent : parents) {
+            for (const auto & parent : parents) {
               auto parent_node = parent.second;
               sub_node = copy_graph_node_r(sub_node);
               parent_node->children[sub_node->key] = sub_node;
@@ -133,14 +133,14 @@ GraphExecutor::add_node(rclcpp::node_interfaces::NodeBaseInterface::SharedPtr no
             // }
           },
           [this, weak_group_ptr](const rclcpp::ClientBase::SharedPtr & client) {
-            // TODO: Add client to graph
+            // TODO(nightduck): Add client to graph
           },
           [this, weak_group_ptr](const rclcpp::TimerBase::SharedPtr & timer) {
             std::list<std::pair<const void *, graph_node_t::SharedPtr>> children_to_insert;
 
             // Get graph_node object for the subscription
             auto tmr_node = timer->copy_graph_node();
-            tmr_node->key = (void *)timer.get();
+            tmr_node->key = reinterpret_cast<void *>(timer.get());
             rcl_timer_get_period(timer->get_timer_handle().get(), &tmr_node->period);
 
             // Iterate over graph_nodes_
@@ -156,11 +156,12 @@ GraphExecutor::add_node(rclcpp::node_interfaces::NodeBaseInterface::SharedPtr no
 
               // If child is subscription and input topic matches one of timer's output
               // topics, then link the timer to this child as a parent
-              if (std::find(tmr_node->output_topics.begin(), tmr_node->output_topics.end(),
-                  child->input_topic) != tmr_node->output_topics.end())  {
-                
+              if (std::find(
+                tmr_node->output_topics.begin(), tmr_node->output_topics.end(),
+                child->input_topic) != tmr_node->output_topics.end())
+              {
                 // Create copy if parent already exists
-                if (child->parent != nullptr) {  
+                if (child->parent != nullptr) {
                   child = copy_graph_node_r(child);
                   children_to_insert.push_back(std::make_pair(entity, child));
                 }
@@ -175,17 +176,17 @@ GraphExecutor::add_node(rclcpp::node_interfaces::NodeBaseInterface::SharedPtr no
             graph_nodes_.insert(std::make_pair(tmr_node->key, tmr_node));
 
             // Add any duplicated children
-            for(const auto & node : children_to_insert) {
+            for (const auto & node : children_to_insert) {
               add_graph_node_r(node.first, node.second);
             }
           },
           [this, weak_group_ptr](const rclcpp::Waitable::SharedPtr & waitable) {
-            // TODO: Add waitable to graph
+            // TODO(nightduck): Add waitable to graph
           });
       }
     });
 
-  // TODO: Remove?
+  // TODO(nightduck): Remove?
   assign_priority();
 }
 
@@ -199,10 +200,10 @@ void
 GraphExecutor::remove_node(
   rclcpp::node_interfaces::NodeBaseInterface::SharedPtr node_ptr, bool notify)
 {
-  // TODO: Assert executor is not running
+  // TODO(nightduck): Assert executor is not running
 
-  // TODO: Find timers and subs in node and remove from graph
-  // TODO: Recalculate ordering of graph and assign priorities or deadlines
+  // TODO(nightduck): Find timers and subs in node and remove from graph
+  // TODO(nightduck): Recalculate ordering of graph and assign priorities or deadlines
 
   EventsExecutor::remove_node(node_ptr, notify);
 }
@@ -265,32 +266,30 @@ void GraphExecutor::assign_priority()
 {
   // Extract all members of graph_nodes_ that don't have parents
   std::vector<graph_node_t::SharedPtr> nodesWithoutParents;
-  for (const auto& node : graph_nodes_)
-  {
-    if (node.second->parent == nullptr)
-    {
+  for (const auto & node : graph_nodes_) {
+    if (node.second->parent == nullptr) {
       nodesWithoutParents.push_back(node.second);
     }
   }
 
   // Sort the timers by shortest to longest period, orphaned subscriptions are first
-  std::sort(nodesWithoutParents.begin(), nodesWithoutParents.end(), [](const graph_node_t::SharedPtr& a, const graph_node_t::SharedPtr& b) {
-    if (a->input_topic != "") {
-      return true;
-    } else if (b->input_topic != "") {
-      return false;
-    } else {
-      return a->period < b->period;
-    }
-  });
+  std::sort(
+    nodesWithoutParents.begin(), nodesWithoutParents.end(),
+    [](const graph_node_t::SharedPtr & a, const graph_node_t::SharedPtr & b) {
+      if (a->input_topic != "") {
+        return true;
+      } else if (b->input_topic != "") {
+        return false;
+      } else {
+        return a->period < b->period;
+      }
+    });
 
   // Call recursively_increment_priority on each element of the list
   int priority = 0;
-  for (const auto& node : nodesWithoutParents)
-  {
+  for (const auto & node : nodesWithoutParents) {
     priority = recursively_increment_priority(node, priority);
   }
-  
 }
 
 int
