@@ -340,6 +340,14 @@ TEST_F(TestGraphExecutor, add_parent_executables)
     sub3_node->children[sub2_node->key]->children[sub1_node->key]->parent,
     sub3_node->children[sub2_node->key]);
 
+  // Verify input topics of child copies were copied correctly
+  auto sub2a = tmr1_node->children[sub2_node->key];
+  auto sub2b = sub3_node->children[sub2_node->key];
+  auto sub2c = tmr2_node->children[sub2_node->key];
+  EXPECT_EQ(sub2a->input_topic, "/pub2");
+  EXPECT_EQ(sub2b->input_topic, "/pub2");
+  EXPECT_EQ(sub2c->input_topic, "/pub2");
+
   bool spin_exited = false;
   std::thread spinner([&spin_exited, &executor, this]() {
       executor.spin();

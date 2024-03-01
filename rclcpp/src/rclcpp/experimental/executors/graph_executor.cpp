@@ -187,7 +187,7 @@ GraphExecutor::add_node(rclcpp::node_interfaces::NodeBaseInterface::SharedPtr no
     });
 
   // TODO(nightduck): Remove?
-  assign_priority();
+  // assign_priority();
 }
 
 void
@@ -276,13 +276,14 @@ void GraphExecutor::assign_priority()
   std::sort(
     nodesWithoutParents.begin(), nodesWithoutParents.end(),
     [](const graph_node_t::SharedPtr & a, const graph_node_t::SharedPtr & b) {
-      if (a->input_topic != "") {
-        return true;
-      } else if (b->input_topic != "") {
-        return false;
-      } else {
-        return a->period < b->period;
-      }
+      // if (a->input_topic != "") {
+      //   return true;
+      // } else if (b->input_topic != "") {
+      //   return false;
+      // } else {
+      //   return a->period < b->period;
+      // }
+      return a->period < b->period;
     });
 
   // Call recursively_increment_priority on each element of the list

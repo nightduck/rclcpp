@@ -34,7 +34,7 @@ struct graph_node
   typedef std::unique_ptr<graph_node_t> UniquePtr;
 
   graph_node()
-  : key(nullptr), parent(nullptr), wcet(0), priority(0), period(0) {}
+  : key(nullptr), parent(nullptr), wcet(0), priority(0), period(0), name("") {}
   graph_node(const graph_node & other) = default;
   graph_node & operator=(const graph_node & other) = default;
 
@@ -47,7 +47,7 @@ struct graph_node
   std::map<const void *, graph_node_t::SharedPtr> children;
   uint64_t wcet;
   uint32_t priority;
-  uint64_t period;
+  int64_t period;
 };
 
 class GraphExecutable
