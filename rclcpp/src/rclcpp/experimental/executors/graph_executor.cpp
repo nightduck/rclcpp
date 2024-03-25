@@ -287,10 +287,24 @@ void GraphExecutor::assign_priority()
     });
 
   // Call recursively_increment_priority on each element of the list
-  int priority = 0;
+  int priority = 1;
   for (const auto & node : nodesWithoutParents) {
-    priority = recursively_increment_priority(node, priority);
+    //priority = recursively_increment_priority(node, priority);
+    recursively_assign_zero(node);	// Assign all children zero priority (most important)
+    node->priority = priority;		// Assign parent node
+    priority++;				// Increment priority (less important)
   }
+}
+
+void
+GraphExecutor::recursively_assign_zero(
+  const graph_node_t::SharedPtr & graph_node)
+{
+  graph_node->priority = 0;
+  for (auto & child : graph_node->children) {
+    recursively_assign_zero(child.second);
+  }
+  return;
 }
 
 int

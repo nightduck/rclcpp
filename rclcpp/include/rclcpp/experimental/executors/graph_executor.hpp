@@ -107,6 +107,12 @@ protected:
     const void * key,
     const rclcpp::experimental::graph_node_t::SharedPtr & graph_node);
 
+  /// Recursively walk down tree in graph and assign everything a priority of zero
+  RCLCPP_PUBLIC
+  void
+  recursively_assign_zero(
+    const rclcpp::experimental::graph_node_t::SharedPtr & graph_node);
+
   /// Recursively walk down tree in graph and increment priority as we go deeper
   RCLCPP_PUBLIC
   int

@@ -154,7 +154,7 @@ private:
   std::function<int(const rclcpp::experimental::executors::ExecutorEvent &)> extract_priority_;
   // The underlying queue implementation
   std::priority_queue<rclcpp::experimental::executors::PriorityEvent,
-    std::vector<rclcpp::experimental::executors::PriorityEvent>,
+    std::deque<rclcpp::experimental::executors::PriorityEvent>,
     ComparePriorities> event_queue_;
   // Mutex to protect read/write access to the queue
   mutable std::mutex mutex_;
