@@ -60,6 +60,8 @@ TEST_F(TestPriorityEventsExecutor, priority_subs)
 
   int subscriptions_executed = 0;
 
+  auto priority_queue = std::make_unique<PriorityEventsQueue>();
+
   qos.deadline(rclcpp::Duration(3, 0));
   bool msg_received_low = false;
   auto sub_low = node->create_subscription<test_msgs::msg::Empty>(
@@ -71,6 +73,7 @@ TEST_F(TestPriorityEventsExecutor, priority_subs)
       EXPECT_EQ(subscriptions_executed, 2);
       subscriptions_executed++;
     });
+  priority_queue->set_priority(sub_low->get_subscription_handle().get(), 3);
 
   qos.deadline(rclcpp::Duration(2, 0));
   bool msg_received_medium = false;
@@ -83,6 +86,7 @@ TEST_F(TestPriorityEventsExecutor, priority_subs)
       EXPECT_EQ(subscriptions_executed, 1);
       subscriptions_executed++;
     });
+  priority_queue->set_priority(sub_medium->get_subscription_handle().get(), 2);
 
   qos.deadline(rclcpp::Duration(1, 0));
   bool msg_received_high = false;
@@ -95,6 +99,7 @@ TEST_F(TestPriorityEventsExecutor, priority_subs)
       EXPECT_EQ(subscriptions_executed, 0);
       subscriptions_executed++;
     });
+  priority_queue->set_priority(sub_high->get_subscription_handle().get(), 1);
 
   auto publisher = node->create_publisher<test_msgs::msg::Empty>("topic", qos);
 
@@ -126,7 +131,7 @@ TEST_F(TestPriorityEventsExecutor, priority_subs)
       }
       return 0UL;
     };
-  EventsExecutor executor(std::make_unique<PriorityEventsQueue>(extract_priority));
+  EventsExecutor executor(std::move(priority_queue));
   executor.add_node(node);
 
 

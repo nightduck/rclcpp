@@ -220,6 +220,9 @@ protected:
   void
   spin_some_impl(std::chrono::nanoseconds max_duration, bool exhaustive);
 
+  /// Queue where entities can push events
+  rclcpp::experimental::executors::EventsQueue::UniquePtr events_queue_;
+
 private:
   RCLCPP_DISABLE_COPY(EventsExecutor)
 
@@ -269,9 +272,6 @@ private:
     // Return the retrieved entity (this can be a nullptr if the entity was not valid)
     return entity;
   }
-
-  /// Queue where entities can push events
-  rclcpp::experimental::executors::EventsQueue::UniquePtr events_queue_;
 
   std::shared_ptr<rclcpp::executors::ExecutorEntitiesCollector> entities_collector_;
   std::shared_ptr<rclcpp::executors::ExecutorNotifyWaitable> notify_waitable_;

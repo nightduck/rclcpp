@@ -40,10 +40,6 @@ public:
   RCLCPP_PUBLIC
   GraphExecutor();
 
-  /// Constructor to specify priority callback function.
-  RCLCPP_PUBLIC
-  explicit GraphExecutor(std::function<int(const ExecutorEvent &)> extract_priority);
-
   /// Default destructor
   RCLCPP_PUBLIC
   virtual ~GraphExecutor();
@@ -112,14 +108,14 @@ protected:
   void
   recursively_assign_value(
     const rclcpp::experimental::graph_node_t::SharedPtr & graph_node,
-    int priority = 0);
+    int64_t priority = 0);
 
   /// Recursively walk down tree in graph and increment priority as we go deeper
   RCLCPP_PUBLIC
   int
   recursively_increment_priority(
     const rclcpp::experimental::graph_node_t::SharedPtr & graph_node,
-    int priority);
+    int64_t priority);
 
   std::multimap<const void *, rclcpp::experimental::graph_node_t::SharedPtr> graph_nodes_;
 };

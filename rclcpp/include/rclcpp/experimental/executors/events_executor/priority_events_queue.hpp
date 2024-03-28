@@ -56,17 +56,12 @@ public:
   RCLCPP_PUBLIC
   PriorityEventsQueue()
   {
-    // Default callback to extract priority from event
-    extract_priority_ = [](const rclcpp::experimental::executors::ExecutorEvent & event) {
-        (void)(event);
-        return 0;
-      };
+    // // Default callback to extract priority from event
+    // extract_priority_ = [](const rclcpp::experimental::executors::ExecutorEvent & event) {
+    //     (void)(event);
+    //     return 1;
+    //   };
   }
-
-  RCLCPP_PUBLIC
-  explicit PriorityEventsQueue(
-    std::function<int(const rclcpp::experimental::executors::ExecutorEvent &)> extract_priority)
-  : extract_priority_(extract_priority) {}
 
   RCLCPP_PUBLIC
   ~PriorityEventsQueue() override = default;
@@ -80,7 +75,7 @@ public:
   void
   enqueue(const rclcpp::experimental::executors::ExecutorEvent & event) override
   {
-    int priority = extract_priority_(event);
+    int priority = priority_[event.entity_key];
     rclcpp::experimental::executors::PriorityEvent single_event = {priority, event};
     single_event.event.num_events = 1;
     {
@@ -115,6 +110,9 @@ public:
     }
 
     if (has_data) {
+      std::cout << "Releasing priority: " << event_queue_.top().priority << std::endl;
+      std::cout << "Queue size: " << event_queue_.size() << std::endl;
+
       event = event_queue_.top().event;
       event_queue_.pop();
       return true;
@@ -149,13 +147,43 @@ public:
     return event_queue_.size();
   }
 
+  /**
+   * @brief Set the priority of an entity
+   * Thread safe
+   * @param entity_id The entity to set the priority for
+   * @param priority The priority to set
+   */
+  RCLCPP_PUBLIC
+  void
+  set_priority(const void * entity_id, int priority)
+  {
+    std::unique_lock<std::mutex> lock(mutex_);
+    priority_[entity_id] = priority;
+  }
+
+  /**
+   * @brief Get the priority of an entity
+   * Thread safe
+   * @param entity_id The entity to get the priority for
+   * @return The priority of the entity
+   */
+  RCLCPP_PUBLIC
+  int
+  get_priority(const void * entity_id) const
+  {
+    std::unique_lock<std::mutex> lock(mutex_);
+    return priority_.at(entity_id);
+  }
+
 private:
-  // Callback to extract priority from event
-  std::function<int(const rclcpp::experimental::executors::ExecutorEvent &)> extract_priority_;
+  // // Callback to extract priority from event
+  // std::function<int(const rclcpp::experimental::executors::ExecutorEvent &)> extract_priority_;
   // The underlying queue implementation
   std::priority_queue<rclcpp::experimental::executors::PriorityEvent,
     std::deque<rclcpp::experimental::executors::PriorityEvent>,
     ComparePriorities> event_queue_;
+  // Map entity_id to fixed priority
+  std::map<const void *, int> priority_;
   // Mutex to protect read/write access to the queue
   mutable std::mutex mutex_;
   // Variable used to notify when an event is added to the queue
