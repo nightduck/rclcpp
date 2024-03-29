@@ -31,7 +31,6 @@ void
 GraphExecutor::add_node(rclcpp::node_interfaces::NodeBaseInterface::SharedPtr node_ptr, bool notify)
 {
   EventsExecutor::add_node(node_ptr, notify);
-  std::cout << std::endl << "Adding node " << node_ptr->get_name() << " to graph" << std::endl;
 
   // Examine timers and subs in node and add to graph
   node_ptr->for_each_callback_group(
@@ -50,13 +49,6 @@ GraphExecutor::add_node(rclcpp::node_interfaces::NodeBaseInterface::SharedPtr no
             // Get graph_node object for the subscription, and insert one copy into graph
             auto sub_node = subscription->copy_graph_node();
             sub_node->key = reinterpret_cast<void *>(subscription->get_subscription_handle().get());
-
-
-            std::cout << "Adding subscription " << subscription->get_topic_name() << "->{";
-            for (auto str : sub_node->output_topics) {
-              std::cout << str << ", ";
-            }
-            std::cout << "} to graph" << std::endl;
 
             // Iterate over graph_nodes
             for (const auto & relative_node : graph_nodes_) {
@@ -146,12 +138,6 @@ GraphExecutor::add_node(rclcpp::node_interfaces::NodeBaseInterface::SharedPtr no
             auto tmr_node = timer->copy_graph_node();
             tmr_node->key = reinterpret_cast<void *>(timer.get());
             rcl_timer_get_period(timer->get_timer_handle().get(), &tmr_node->period);
-
-            std::cout << "Adding timer " << timer << tmr_node->period << "ns->{";
-            for(auto str : tmr_node->output_topics) {
-              std::cout << str << ", ";
-            }
-            std::cout << "} to graph" << std::endl;
 
             // Iterate over graph_nodes_
             for (const auto & child_node : graph_nodes_) {
@@ -278,7 +264,6 @@ void GraphExecutor::assign_priority()
   std::vector<graph_node_t::SharedPtr> nodesWithoutParents;
   for (const auto & node : graph_nodes_) {
     if (node.second->parent == nullptr) {
-      std::cout << "Found node without parent: " << node.second->input_topic << std::endl;
       nodesWithoutParents.push_back(node.second);
     }
   }
@@ -303,13 +288,6 @@ void GraphExecutor::assign_priority()
     // priority = recursively_increment_priority(node, priority);
     // Assign all children zero priority (most important)
     recursively_assign_value(node, node->period);
-    if (node->period == 0) {
-      std::cout << "Found graph node with period 0: " << node->input_topic << std::endl;
-      if (node->parent != nullptr) {
-        std::cout << "Parent isn't null" << std::endl;
-      }
-      std::cout << "Number of children: " << node->children.size() << std::endl;
-    }
     priority++;				// Increment priority (less important)
   }
 }

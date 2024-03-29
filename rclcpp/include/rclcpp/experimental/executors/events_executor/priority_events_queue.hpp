@@ -110,9 +110,6 @@ public:
     }
 
     if (has_data) {
-      std::cout << "Releasing priority: " << event_queue_.top().priority << std::endl;
-      std::cout << "Queue size: " << event_queue_.size() << std::endl;
-
       event = event_queue_.top().event;
       event_queue_.pop();
       return true;
