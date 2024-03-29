@@ -142,7 +142,7 @@ create_subscription(
   }
 
   // Add input topic name and link to rcl_subscription_t pointer
-  sub->add_input_topic(topic_name);
+  sub->add_input_topic(sub->get_topic_name());
   sub->add_key(sub->get_subscription_handle().get());
 
   node_topics_interface->add_subscription(sub, options.callback_group);
