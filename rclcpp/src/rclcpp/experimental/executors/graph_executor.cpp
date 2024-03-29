@@ -285,10 +285,10 @@ void GraphExecutor::assign_priority()
   // Call recursively_increment_priority on each element of the list
   int priority = 0;
   for (const auto & node : nodesWithoutParents) {
-    // priority = recursively_increment_priority(node, priority);
+    priority = recursively_increment_priority(node, priority);
     // Assign all children zero priority (most important)
-    recursively_assign_value(node, node->period);
-    priority++;				// Increment priority (less important)
+    // recursively_assign_value(node, node->period);
+    // priority++;				// Increment priority (higher numbers = less important)
   }
 }
 
