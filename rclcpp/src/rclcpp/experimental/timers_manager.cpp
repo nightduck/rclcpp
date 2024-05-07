@@ -22,6 +22,7 @@
 #include <stdexcept>
 
 #include "rcpputils/scope_exit.hpp"
+#include "rclcpp/logging.hpp"
 
 using rclcpp::experimental::TimersManager;
 
@@ -237,6 +238,16 @@ void TimersManager::run_timers()
   // Make sure the running flag is set to false when we exit from this function
   // to allow restarting the timers thread.
   RCPPUTILS_SCOPE_EXIT(this->running_.store(false); );
+
+  // Set thread priority to 90 under SCHED_FIFO, if this thread is only dispatching
+  if (on_ready_callback_) {
+    struct sched_param params;
+    params.sched_priority = 90;
+    int ret = pthread_setschedparam(pthread_self(), SCHED_FIFO, &params);
+    if (ret != 0) {
+      RCLCPP_WARN(rclcpp::get_logger("rclcpp"), "Failed to elevate priority of timers manager priority: %s", strerror(ret));
+    }
+  }
 
   while (rclcpp::ok(context_) && running_) {
     // Lock mutex
