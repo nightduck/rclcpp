@@ -279,16 +279,13 @@ void GraphExecutor::assign_priority()
       // } else {
       //   return a->period < b->period;
       // }
-      return a->period < b->period;
+      return a->period > b->period;
     });
 
   // Call recursively_increment_priority on each element of the list
-  int priority = 0;
+  int priority = graph_nodes_.size();
   for (const auto & node : nodesWithoutParents) {
-    priority = recursively_increment_priority(node, priority);
-    // Assign all children zero priority (most important)
-    // recursively_assign_value(node, node->period);
-    // priority++;				// Increment priority (higher numbers = less important)
+    priority = decrement_priority_bfs(node, priority);
   }
 }
 
@@ -305,6 +302,7 @@ GraphExecutor::recursively_assign_value(
   return;
 }
 
+// TODO: This is DFS, correct it to be BFS
 int
 GraphExecutor::recursively_increment_priority(
   const graph_node_t::SharedPtr & graph_node,
@@ -316,5 +314,28 @@ GraphExecutor::recursively_increment_priority(
   for (auto & child : graph_node->children) {
     priority = recursively_increment_priority(child.second, priority);
   }
+  return priority;
+}
+
+int64_t
+GraphExecutor::decrement_priority_bfs(
+  const graph_node_t::SharedPtr & graph_node,
+  int64_t priority)
+{
+  std::queue<graph_node_t::SharedPtr> queue;
+  queue.push(graph_node);
+
+  while (!queue.empty()) {
+    auto node = queue.front();
+    queue.pop();
+    for (auto & child : node->children) {
+      queue.push(child.second);
+    }
+
+    node->priority = priority;
+    static_cast<PriorityEventsQueue *>(events_queue_.get())->set_priority(node->key, priority);
+    priority--;
+  }
+
   return priority;
 }
