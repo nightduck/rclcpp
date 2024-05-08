@@ -28,6 +28,8 @@
 
 #include "rclcpp/context.hpp"
 #include "rclcpp/timer.hpp"
+#include "rclcpp/experimental/executors/events_executor/priority_events_queue.hpp"
+#include "rclcpp/experimental/executors/events_executor/events_executor_event_types.hpp"
 
 namespace rclcpp
 {
@@ -520,6 +522,13 @@ private:
   std::chrono::nanoseconds get_head_timeout_unsafe();
 
   /**
+   * @brief Enqueues all the timers that are currently ready into the dispatched_timers_ queue or
+   * invoke the on_ready_callback_ if it's callable.
+   * This function is not thread safe, acquire the timers_mutex_ before calling it.
+  */
+ void enqueue_ready_timers_unsafe();
+
+  /**
    * @brief Executes all the timers currently ready when the function is invoked
    * while keeping the heap correctly sorted.
    * This function is not thread safe, acquire the timers_mutex_ before calling it.
@@ -545,6 +554,8 @@ private:
   std::shared_ptr<rclcpp::Context> context_;
   // Timers heap storage with weak ownership
   WeakTimersHeap weak_timers_heap_;
+  // Prioritized events queue to hold dispatched timers
+  rclcpp::experimental::executors::PriorityEventsQueue dispatched_timers_;
 };
 
 }  // namespace experimental

@@ -25,6 +25,8 @@
 #include "rclcpp/logging.hpp"
 
 using rclcpp::experimental::TimersManager;
+using rclcpp::experimental::executors::ExecutorEvent;
+using rclcpp::experimental::executors::ExecutorEventType;
 
 TimersManager::TimersManager(
   std::shared_ptr<rclcpp::Context> context,
@@ -196,6 +198,51 @@ std::chrono::nanoseconds TimersManager::get_head_timeout_unsafe()
   return head_timer->time_until_trigger();
 }
 
+void TimersManager::enqueue_ready_timers_unsafe()
+{
+  // We start by locking the timers
+  TimersHeap locked_heap = weak_timers_heap_.validate_and_lock();
+
+  // Nothing to do if we don't have any timer
+  if (locked_heap.empty()) {
+    return;
+  }
+
+  // Keep executing timers until they are ready and they were already ready when we started.
+  // The two checks prevent this function from blocking indefinitely if the
+  // time required for executing the timers is longer than their period.
+
+  dispatched_timers_.queue_lock();
+  TimerPtr head_timer = locked_heap.front();
+  const size_t number_ready_timers = locked_heap.get_number_ready_timers();
+  size_t executed_timers = 0;
+  while (executed_timers < number_ready_timers && head_timer->is_ready()) {
+    head_timer->call();
+
+    if (on_ready_callback_) {
+      on_ready_callback_(head_timer.get());
+    } else {
+      ExecutorEvent event = {head_timer.get(), -1, ExecutorEventType::TIMER_EVENT, 1};
+      dispatched_timers_.enqueue_unsafe(event);
+    }
+
+    executed_timers++;
+    // Executing a timer will result in updating its time_until_trigger, so re-heapify
+    locked_heap.heapify_root();
+    // Get new head timer
+    head_timer = locked_heap.front();
+
+    // NOTE: We shouldn't have to re-heapify locked_heap, because it is assumed we're collecting all
+    // released timers at a snapshot in time, and no timers will get re-released while this function
+    // is executing. locked_heap will get resorted when this function is called again
+  }
+  dispatched_timers_.queue_unlock();
+
+  // After having performed work on the locked heap we reflect the changes to weak one.
+  // Timers will be already sorted the next time we need them if none went out of scope.
+  weak_timers_heap_.store(locked_heap);
+}
+
 void TimersManager::execute_ready_timers_unsafe()
 {
   // We start by locking the timers
@@ -250,27 +297,38 @@ void TimersManager::run_timers()
   }
 
   while (rclcpp::ok(context_) && running_) {
-    // Lock mutex
-    std::unique_lock<std::mutex> lock(timers_mutex_);
+    {
+      // Lock mutex
+      std::unique_lock<std::mutex> lock(timers_mutex_);
 
-    std::chrono::nanoseconds time_to_sleep = get_head_timeout_unsafe();
+      std::chrono::nanoseconds time_to_sleep = get_head_timeout_unsafe();
 
-    // No need to wait if a timer is already available
-    if (time_to_sleep > std::chrono::nanoseconds::zero()) {
-      if (time_to_sleep != std::chrono::nanoseconds::max()) {
-        // Wait until timeout or notification that timers have been updated
-        timers_cv_.wait_for(lock, time_to_sleep, [this]() {return timers_updated_;});
-      } else {
-        // Wait until notification that timers have been updated
-        timers_cv_.wait(lock, [this]() {return timers_updated_;});
+      // No need to wait if a timer is already available
+      if (time_to_sleep > std::chrono::nanoseconds::zero()) {
+        if (time_to_sleep != std::chrono::nanoseconds::max()) {
+          // Wait until timeout or notification that timers have been updated
+          timers_cv_.wait_for(lock, time_to_sleep, [this]() {return timers_updated_;});
+        } else {
+          // Wait until notification that timers have been updated
+          timers_cv_.wait(lock, [this]() {return timers_updated_;});
+        }
       }
+
+      // Reset timers updated flag
+      timers_updated_ = false;
+
+      // Enqueue all ready timers into the dispatched timers queue, so they're prioritized
+      this->enqueue_ready_timers_unsafe();
     }
 
-    // Reset timers updated flag
-    timers_updated_ = false;
-
-    // Execute timers
-    this->execute_ready_timers_unsafe();
+    // Execute timer, if applicable
+    if (!on_ready_callback_) {
+      // dequeue will only block if there are no events. If there are no events, we'd still be
+      // waiting on the timer_cv_ above, so this would never be reached
+      ExecutorEvent event;
+      dispatched_timers_.dequeue(event);
+      execute_ready_timer(static_cast<const rclcpp::TimerBase *>(event.entity_key));
+    }
   }
 }
 
