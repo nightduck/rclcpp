@@ -304,7 +304,7 @@ void TimersManager::run_timers()
       std::chrono::nanoseconds time_to_sleep = get_head_timeout_unsafe();
 
       // No need to wait if a timer is already available
-      if (time_to_sleep > std::chrono::nanoseconds::zero()) {
+      if (time_to_sleep > std::chrono::nanoseconds::zero() && dispatched_timers_.empty()) {
         if (time_to_sleep != std::chrono::nanoseconds::max()) {
           // Wait until timeout or notification that timers have been updated
           timers_cv_.wait_for(lock, time_to_sleep, [this]() {return timers_updated_;});
