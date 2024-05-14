@@ -180,6 +180,21 @@ public:
   void
   clear_on_reset_callback();
 
+  /// Get period
+  /**
+   * \return The period of the timer
+   */
+  RCLCPP_PUBLIC
+  int64_t
+  get_period();
+
+  /// Get next time the timer was triggered
+  /**
+   * \return The next time the timer was triggered
+   */
+  int64_t
+  get_arrival_time();
+
 protected:
   std::recursive_mutex callback_mutex_;
   // Declare callback before timer_handle_, so on destruction
