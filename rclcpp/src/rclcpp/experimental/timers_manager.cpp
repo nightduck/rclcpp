@@ -30,8 +30,8 @@ using rclcpp::experimental::executors::ExecutorEventType;
 
 TimersManager::TimersManager(
   std::shared_ptr<rclcpp::Context> context,
-  std::function<void(const rclcpp::TimerBase *)> on_ready_callback)
-: on_ready_callback_(on_ready_callback),
+  executors::EventsQueue::SharedPtr events_queue)
+: events_queue_(events_queue),
   context_(context)
 {
 }
@@ -213,16 +213,17 @@ void TimersManager::enqueue_ready_timers_unsafe()
   // time required for executing the timers is longer than their period.
 
   dispatched_timers_.queue_lock();
+  events_queue_->queue_lock();
   TimerPtr head_timer = locked_heap.front();
   const size_t number_ready_timers = locked_heap.get_number_ready_timers();
   size_t executed_timers = 0;
   while (executed_timers < number_ready_timers && head_timer->is_ready()) {
     head_timer->call();
 
-    if (on_ready_callback_) {
-      on_ready_callback_(head_timer.get());
+    ExecutorEvent event = {head_timer.get(), -1, ExecutorEventType::TIMER_EVENT, 1};
+    if (events_queue_ != nullptr) {
+      events_queue_->enqueue_unsafe(event);
     } else {
-      ExecutorEvent event = {head_timer.get(), -1, ExecutorEventType::TIMER_EVENT, 1};
       dispatched_timers_.enqueue_unsafe(event);
     }
 
@@ -236,6 +237,7 @@ void TimersManager::enqueue_ready_timers_unsafe()
     // released timers at a snapshot in time, and no timers will get re-released while this function
     // is executing. locked_heap will get resorted when this function is called again
   }
+  events_queue_->queue_unlock();
   dispatched_timers_.queue_unlock();
 
   // After having performed work on the locked heap we reflect the changes to weak one.
@@ -243,42 +245,42 @@ void TimersManager::enqueue_ready_timers_unsafe()
   weak_timers_heap_.store(locked_heap);
 }
 
-void TimersManager::execute_ready_timers_unsafe()
-{
-  // We start by locking the timers
-  TimersHeap locked_heap = weak_timers_heap_.validate_and_lock();
+// void TimersManager::execute_ready_timers_unsafe()
+// {
+//   // We start by locking the timers
+//   TimersHeap locked_heap = weak_timers_heap_.validate_and_lock();
 
-  // Nothing to do if we don't have any timer
-  if (locked_heap.empty()) {
-    return;
-  }
+//   // Nothing to do if we don't have any timer
+//   if (locked_heap.empty()) {
+//     return;
+//   }
 
-  // Keep executing timers until they are ready and they were already ready when we started.
-  // The two checks prevent this function from blocking indefinitely if the
-  // time required for executing the timers is longer than their period.
+//   // Keep executing timers until they are ready and they were already ready when we started.
+//   // The two checks prevent this function from blocking indefinitely if the
+//   // time required for executing the timers is longer than their period.
 
-  TimerPtr head_timer = locked_heap.front();
-  const size_t number_ready_timers = locked_heap.get_number_ready_timers();
-  size_t executed_timers = 0;
-  while (executed_timers < number_ready_timers && head_timer->is_ready()) {
-    head_timer->call();
-    if (on_ready_callback_) {
-      on_ready_callback_(head_timer.get());
-    } else {
-      head_timer->execute_callback();
-    }
+//   TimerPtr head_timer = locked_heap.front();
+//   const size_t number_ready_timers = locked_heap.get_number_ready_timers();
+//   size_t executed_timers = 0;
+//   while (executed_timers < number_ready_timers && head_timer->is_ready()) {
+//     head_timer->call();
+//     if (on_ready_callback_) {
+//       on_ready_callback_(head_timer.get());
+//     } else {
+//       head_timer->execute_callback();
+//     }
 
-    executed_timers++;
-    // Executing a timer will result in updating its time_until_trigger, so re-heapify
-    locked_heap.heapify_root();
-    // Get new head timer
-    head_timer = locked_heap.front();
-  }
+//     executed_timers++;
+//     // Executing a timer will result in updating its time_until_trigger, so re-heapify
+//     locked_heap.heapify_root();
+//     // Get new head timer
+//     head_timer = locked_heap.front();
+//   }
 
-  // After having performed work on the locked heap we reflect the changes to weak one.
-  // Timers will be already sorted the next time we need them if none went out of scope.
-  weak_timers_heap_.store(locked_heap);
-}
+//   // After having performed work on the locked heap we reflect the changes to weak one.
+//   // Timers will be already sorted the next time we need them if none went out of scope.
+//   weak_timers_heap_.store(locked_heap);
+// }
 
 void TimersManager::run_timers()
 {
@@ -287,7 +289,7 @@ void TimersManager::run_timers()
   RCPPUTILS_SCOPE_EXIT(this->running_.store(false); );
 
   // Set thread priority to 90 under SCHED_FIFO, if this thread is only dispatching
-  if (on_ready_callback_) {
+  if (events_queue_ != nullptr) {
     struct sched_param params;
     params.sched_priority = 90;
     int ret = pthread_setschedparam(pthread_self(), SCHED_FIFO, &params);
@@ -322,7 +324,7 @@ void TimersManager::run_timers()
     }
 
     // Execute timer, if applicable
-    if (!on_ready_callback_) {
+    if (events_queue_ == nullptr) {
       // dequeue will only block if there are no events. If there are no events, we'd still be
       // waiting on the timer_cv_ above, so this would never be reached
       ExecutorEvent event;

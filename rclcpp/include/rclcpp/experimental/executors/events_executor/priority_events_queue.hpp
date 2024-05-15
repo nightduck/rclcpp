@@ -21,6 +21,7 @@
 #include <queue>
 #include <utility>
 #include <vector>
+#include <iostream>
 
 #include "rclcpp/experimental/executors/events_executor/events_queue.hpp"
 
@@ -53,6 +54,8 @@ struct ComparePriorities : public std::binary_function<PriorityEvent, PriorityEv
 class PriorityEventsQueue : public EventsQueue
 {
 public:
+  RCLCPP_SMART_PTR_ALIASES_ONLY(PriorityEventsQueue)
+
   RCLCPP_PUBLIC
   PriorityEventsQueue()
   {
@@ -94,7 +97,7 @@ public:
    */
   RCLCPP_PUBLIC
   void
-  enqueue_unsafe(const rclcpp::experimental::executors::ExecutorEvent & event)
+  enqueue_unsafe(const rclcpp::experimental::executors::ExecutorEvent & event) override
   {
     int priority = priority_[event.entity_key];
     rclcpp::experimental::executors::PriorityEvent single_event = {priority, event};
@@ -109,7 +112,7 @@ public:
   */
   RCLCPP_PUBLIC
   void
-  queue_lock() {
+  queue_lock() override {
     mutex_.lock();
   }
 
@@ -120,7 +123,7 @@ public:
   */
   RCLCPP_PUBLIC
   void
-  queue_unlock() {
+  queue_unlock() override {
     mutex_.unlock();
     events_queue_cv_.notify_one();
   }
@@ -228,6 +231,8 @@ protected:
 class EDFEventsQueue : public PriorityEventsQueue
 {
 public:
+  RCLCPP_SMART_PTR_ALIASES_ONLY(EDFEventsQueue)
+
   RCLCPP_PUBLIC
   EDFEventsQueue()
   {
@@ -250,7 +255,7 @@ public:
   void
   enqueue(const rclcpp::experimental::executors::ExecutorEvent & event) override
   {
-    int priority = get_priority(event.entity_key);
+    int priority;
     if (event.type == rclcpp::experimental::executors::ExecutorEventType::TIMER_EVENT) {
       priority = static_cast<const rclcpp::TimerBase *>(event.entity_key)->get_arrival_time();
     } else if (event.type == rclcpp::experimental::executors::ExecutorEventType::SUBSCRIPTION_EVENT) {
@@ -279,7 +284,7 @@ public:
   void
   enqueue_unsafe(const rclcpp::experimental::executors::ExecutorEvent & event)
   {
-    int priority = get_priority(event.entity_key);
+    int priority;
     if (event.type == rclcpp::experimental::executors::ExecutorEventType::TIMER_EVENT) {
       priority = static_cast<const rclcpp::TimerBase *>(event.entity_key)->get_arrival_time();
     } else if (event.type == rclcpp::experimental::executors::ExecutorEventType::SUBSCRIPTION_EVENT) {

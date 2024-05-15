@@ -93,6 +93,44 @@ public:
   }
 
   /**
+   * @brief enqueue event into the queue without locking
+   * Not thread safe
+   * @param event The event to enqueue into the queue
+   */
+  RCLCPP_PUBLIC
+  void
+  enqueue_unsafe(const rclcpp::experimental::executors::ExecutorEvent & event) override
+  {
+    rclcpp::experimental::executors::ExecutorEvent single_event = event;
+    single_event.num_events = 1;
+    event_queue_.push(single_event);
+    events_queue_cv_.notify_one();
+  }
+
+  /**
+   * @brief Lock the queue
+   * This function is used to lock the queue to prevent other threads from accessing it.
+   * Must be called in conjunction with queue_unlock(), otherwise all queue operations will block
+  */
+  RCLCPP_PUBLIC
+  void
+  queue_lock() override {
+    mutex_.lock();
+  }
+
+  /**
+   * @brief Unlock the queue
+   * This function is used to unlock the queue after it has been locked with queue_lock().
+   * Will notify any waiting threads that the queue is unlocked.
+  */
+  RCLCPP_PUBLIC
+  void
+  queue_unlock() override {
+    mutex_.unlock();
+    events_queue_cv_.notify_one();
+  }
+
+  /**
    * @brief Test whether queue is empty
    * Thread safe
    * @return true if the queue's size is 0, false otherwise.

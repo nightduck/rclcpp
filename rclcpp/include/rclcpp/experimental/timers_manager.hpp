@@ -88,7 +88,8 @@ public:
   RCLCPP_PUBLIC
   TimersManager(
     std::shared_ptr<rclcpp::Context> context,
-    std::function<void(const rclcpp::TimerBase *)> on_ready_callback = nullptr);
+    executors::EventsQueue::SharedPtr events_queue = nullptr);
+    // std::function<void(const rclcpp::TimerBase *)> on_ready_callback = nullptr);
 
   /**
    * @brief Destruct the TimersManager object making sure to stop thread and release memory.
@@ -535,8 +536,8 @@ private:
    */
   void execute_ready_timers_unsafe();
 
-  // Callback to be called when timer is ready
-  std::function<void(const rclcpp::TimerBase *)> on_ready_callback_;
+  // // Callback to be called when timer is ready
+  // std::function<void(const rclcpp::TimerBase *)> on_ready_callback_;
 
   // Thread used to run the timers execution task
   std::thread timers_thread_;
@@ -556,6 +557,8 @@ private:
   WeakTimersHeap weak_timers_heap_;
   // Prioritized events queue to hold dispatched timers
   rclcpp::experimental::executors::PriorityEventsQueue dispatched_timers_;
+  // Events queue to release timers into for default thread
+  rclcpp::experimental::executors::EventsQueue::SharedPtr events_queue_;
 };
 
 }  // namespace experimental

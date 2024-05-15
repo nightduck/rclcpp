@@ -36,19 +36,19 @@ EventsExecutor::EventsExecutor(
   }
   events_queue_ = std::move(events_queue);
 
-  // Create timers manager
-  // The timers manager can be used either to only track timers (in this case an expired
-  // timer will generate an executor event and then it will be executed by the executor thread)
-  // or it can also take care of executing expired timers in its dedicated thread.
-  std::function<void(const rclcpp::TimerBase *)> timer_on_ready_cb = nullptr;
-  if (!execute_timers_separate_thread) {
-    timer_on_ready_cb = [this](const rclcpp::TimerBase * timer_id) {
-        ExecutorEvent event = {timer_id, -1, ExecutorEventType::TIMER_EVENT, 1};
-        this->events_queue_->enqueue(event);
-      };
-  }
+  // // Create timers manager
+  // // The timers manager can be used either to only track timers (in this case an expired
+  // // timer will generate an executor event and then it will be executed by the executor thread)
+  // // or it can also take care of executing expired timers in its dedicated thread.
+  // std::function<void(const rclcpp::TimerBase *)> timer_on_ready_cb = nullptr;
+  // if (!execute_timers_separate_thread) {
+  //   timer_on_ready_cb = [this](const rclcpp::TimerBase * timer_id) {
+  //       ExecutorEvent event = {timer_id, -1, ExecutorEventType::TIMER_EVENT, 1};
+  //       this->events_queue_->enqueue(event);
+  //     };
+  // }
   timers_manager_ =
-    std::make_shared<rclcpp::experimental::TimersManager>(context_, timer_on_ready_cb);
+    std::make_shared<rclcpp::experimental::TimersManager>(context_, events_queue_);
 
   this->current_entities_collection_ =
     std::make_shared<rclcpp::executors::ExecutorEntitiesCollection>();

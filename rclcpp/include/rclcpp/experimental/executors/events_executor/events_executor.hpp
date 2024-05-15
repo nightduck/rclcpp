@@ -221,7 +221,7 @@ protected:
   spin_some_impl(std::chrono::nanoseconds max_duration, bool exhaustive);
 
   /// Queue where entities can push events
-  rclcpp::experimental::executors::EventsQueue::UniquePtr events_queue_;
+  rclcpp::experimental::executors::EventsQueue::SharedPtr events_queue_;
 
 private:
   RCLCPP_DISABLE_COPY(EventsExecutor)
