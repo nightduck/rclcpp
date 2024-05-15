@@ -30,7 +30,7 @@ namespace experimental
 {
 namespace executors
 {
-
+  
 class GraphExecutor : public EventsExecutor
 {
 public:
@@ -38,7 +38,7 @@ public:
 
   /// Default constructor. See the default constructor for Executor.
   RCLCPP_PUBLIC
-  GraphExecutor();
+  GraphExecutor(bool execute_timers_separate_thread = false);
 
   /// Default destructor
   RCLCPP_PUBLIC

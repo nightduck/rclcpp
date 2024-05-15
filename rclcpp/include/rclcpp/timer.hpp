@@ -186,14 +186,14 @@ public:
    */
   RCLCPP_PUBLIC
   int64_t
-  get_period();
+  get_period() const;
 
   /// Get next time the timer was triggered
   /**
    * \return The next time the timer was triggered
    */
   int64_t
-  get_arrival_time();
+  get_arrival_time() const;
 
 protected:
   std::recursive_mutex callback_mutex_;

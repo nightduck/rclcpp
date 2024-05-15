@@ -220,7 +220,7 @@ TimerBase::set_on_reset_callback(rcl_event_callback_t callback, const void * use
 }
 
 int64_t
-TimerBase::get_period()
+TimerBase::get_period() const
 {
   int64_t period;
   rcl_ret_t ret = rcl_timer_get_period(timer_handle_.get(), &period);
@@ -231,7 +231,7 @@ TimerBase::get_period()
 }
 
 int64_t
-TimerBase::get_arrival_time()
+TimerBase::get_arrival_time() const
 {
   int64_t time;
   rcl_ret_t ret = rcl_timer_get_next_call_time(timer_handle_.get(), &time);
