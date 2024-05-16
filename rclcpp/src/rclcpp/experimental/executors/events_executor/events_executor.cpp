@@ -35,6 +35,7 @@ EventsExecutor::EventsExecutor(
     throw std::invalid_argument("events_queue can't be a null pointer");
   }
   events_queue_ = std::move(events_queue);
+  bool separate_thread = timers_queue != nullptr;
 
   // // Create timers manager
   // // The timers manager can be used either to only track timers (in this case an expired
@@ -50,8 +51,8 @@ EventsExecutor::EventsExecutor(
   timers_manager_ =
     std::make_shared<rclcpp::experimental::TimersManager>(
       context_,
-      timers_queue != nullptr ? std::move(timers_queue) : events_queue_,
-      timers_queue != nullptr);
+      separate_thread ? std::move(timers_queue) : events_queue_,
+      separate_thread);
 
   this->current_entities_collection_ =
     std::make_shared<rclcpp::executors::ExecutorEntitiesCollection>();
