@@ -258,8 +258,6 @@ public:
     int priority;
     if (event.type == rclcpp::experimental::executors::ExecutorEventType::TIMER_EVENT) {
       priority = static_cast<const rclcpp::TimerBase *>(event.entity_key)->get_arrival_time();
-    } else if (event.type == rclcpp::experimental::executors::ExecutorEventType::SUBSCRIPTION_EVENT) {
-      priority = 1;
     } else {
       priority = 1;
     }
@@ -287,8 +285,72 @@ public:
     int priority;
     if (event.type == rclcpp::experimental::executors::ExecutorEventType::TIMER_EVENT) {
       priority = static_cast<const rclcpp::TimerBase *>(event.entity_key)->get_arrival_time();
-    } else if (event.type == rclcpp::experimental::executors::ExecutorEventType::SUBSCRIPTION_EVENT) {
+    } else {
       priority = 1;
+    }
+    rclcpp::experimental::executors::PriorityEvent single_event = {priority, event};
+    single_event.event.num_events = 1;
+    event_queue_.push(single_event);
+  }
+};
+
+class RMEventsQueue : public PriorityEventsQueue
+{
+public:
+  RCLCPP_SMART_PTR_ALIASES_ONLY(RMEventsQueue)
+
+  RCLCPP_PUBLIC
+  RMEventsQueue()
+  {
+    // // Default callback to extract priority from event
+    // extract_priority_ = [](const rclcpp::experimental::executors::ExecutorEvent & event) {
+    //     (void)(event);
+    //     return 1;
+    //   };
+  }
+
+  RCLCPP_PUBLIC
+  ~RMEventsQueue() override = default;
+
+  /**
+   * @brief enqueue event into the queue
+   * Thread safe
+   * @param event The event to enqueue into the queue
+   */
+  RCLCPP_PUBLIC
+  void
+  enqueue(const rclcpp::experimental::executors::ExecutorEvent & event) override
+  {
+    int priority;
+    if (event.type == rclcpp::experimental::executors::ExecutorEventType::TIMER_EVENT) {
+      priority = static_cast<const rclcpp::TimerBase *>(event.entity_key)->get_period();
+    } else {
+      priority = 1;
+    }
+
+    rclcpp::experimental::executors::PriorityEvent single_event = {priority, event};
+    single_event.event.num_events = 1;
+    {
+      std::unique_lock<std::mutex> lock(mutex_);
+      for (size_t ev = 0; ev < event.num_events; ev++) {
+        event_queue_.push(single_event);
+      }
+    }
+    events_queue_cv_.notify_one();
+  }
+
+  /**
+   * @brief enqueue event into the queue without locking
+   * Not thread safe
+   * @param event The event to enqueue into the queue
+   */
+  RCLCPP_PUBLIC
+  void
+  enqueue_unsafe(const rclcpp::experimental::executors::ExecutorEvent & event)
+  {
+    int priority;
+    if (event.type == rclcpp::experimental::executors::ExecutorEventType::TIMER_EVENT) {
+      priority = static_cast<const rclcpp::TimerBase *>(event.entity_key)->get_period();
     } else {
       priority = 1;
     }

@@ -88,7 +88,8 @@ public:
   RCLCPP_PUBLIC
   TimersManager(
     std::shared_ptr<rclcpp::Context> context,
-    executors::EventsQueue::SharedPtr events_queue = nullptr);
+    executors::EventsQueue::SharedPtr events_queue = nullptr,
+    bool separate_thread = false);
     // std::function<void(const rclcpp::TimerBase *)> on_ready_callback = nullptr);
 
   /**
@@ -555,10 +556,10 @@ private:
   std::shared_ptr<rclcpp::Context> context_;
   // Timers heap storage with weak ownership
   WeakTimersHeap weak_timers_heap_;
-  // Prioritized events queue to hold dispatched timers
-  rclcpp::experimental::executors::PriorityEventsQueue dispatched_timers_;
   // Events queue to release timers into for default thread
   rclcpp::experimental::executors::EventsQueue::SharedPtr events_queue_;
+  // Bool to indicate if timer execution should be done in a separate thread
+  bool separate_thread_;
 };
 
 }  // namespace experimental

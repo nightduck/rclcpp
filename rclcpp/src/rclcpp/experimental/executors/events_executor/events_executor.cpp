@@ -26,7 +26,7 @@ using rclcpp::experimental::executors::EventsExecutor;
 
 EventsExecutor::EventsExecutor(
   rclcpp::experimental::executors::EventsQueue::UniquePtr events_queue,
-  bool execute_timers_separate_thread,
+  rclcpp::experimental::executors::EventsQueue::UniquePtr timers_queue,
   const rclcpp::ExecutorOptions & options)
 : rclcpp::Executor(options)
 {
@@ -48,7 +48,10 @@ EventsExecutor::EventsExecutor(
   //     };
   // }
   timers_manager_ =
-    std::make_shared<rclcpp::experimental::TimersManager>(context_, events_queue_);
+    std::make_shared<rclcpp::experimental::TimersManager>(
+      context_,
+      timers_queue != nullptr ? std::move(timers_queue) : events_queue_,
+      timers_queue != nullptr);
 
   this->current_entities_collection_ =
     std::make_shared<rclcpp::executors::ExecutorEntitiesCollection>();

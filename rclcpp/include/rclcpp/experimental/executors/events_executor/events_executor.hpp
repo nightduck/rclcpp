@@ -75,7 +75,7 @@ public:
   explicit EventsExecutor(
     rclcpp::experimental::executors::EventsQueue::UniquePtr events_queue = std::make_unique<
       rclcpp::experimental::executors::SimpleEventsQueue>(),
-    bool execute_timers_separate_thread = false,
+    rclcpp::experimental::executors::EventsQueue::UniquePtr timers_queue = nullptr,
     const rclcpp::ExecutorOptions & options = rclcpp::ExecutorOptions());
 
   /// Default destructor.

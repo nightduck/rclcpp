@@ -18,8 +18,8 @@ using rclcpp::experimental::executors::GraphExecutor;
 using rclcpp::experimental::executors::EventsExecutor;
 using rclcpp::experimental::executors::PriorityEventsQueue;
 
-GraphExecutor::GraphExecutor(bool execute_timers_separate_thread)
-: EventsExecutor(std::make_unique<PriorityEventsQueue>(), execute_timers_separate_thread)
+GraphExecutor::GraphExecutor(EventsQueue::UniquePtr timers_queue)
+: EventsExecutor(std::make_unique<PriorityEventsQueue>(), std::move(timers_queue))
 {
 }
 

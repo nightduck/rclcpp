@@ -38,7 +38,7 @@ public:
 
   /// Default constructor. See the default constructor for Executor.
   RCLCPP_PUBLIC
-  GraphExecutor(bool execute_timers_separate_thread = false);
+  GraphExecutor(EventsQueue::UniquePtr timers_queue = nullptr);
 
   /// Default destructor
   RCLCPP_PUBLIC

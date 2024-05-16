@@ -30,9 +30,11 @@ using rclcpp::experimental::executors::ExecutorEventType;
 
 TimersManager::TimersManager(
   std::shared_ptr<rclcpp::Context> context,
-  executors::EventsQueue::SharedPtr events_queue)
+  executors::EventsQueue::SharedPtr events_queue,
+  bool separate_thread)
 : events_queue_(events_queue),
-  context_(context)
+  context_(context),
+  separate_thread_(separate_thread)
 {
 }
 
@@ -212,7 +214,6 @@ void TimersManager::enqueue_ready_timers_unsafe()
   // The two checks prevent this function from blocking indefinitely if the
   // time required for executing the timers is longer than their period.
 
-  dispatched_timers_.queue_lock();
   events_queue_->queue_lock();
   TimerPtr head_timer = locked_heap.front();
   const size_t number_ready_timers = locked_heap.get_number_ready_timers();
@@ -221,11 +222,7 @@ void TimersManager::enqueue_ready_timers_unsafe()
     head_timer->call();
 
     ExecutorEvent event = {head_timer.get(), -1, ExecutorEventType::TIMER_EVENT, 1};
-    if (events_queue_ != nullptr) {
-      events_queue_->enqueue_unsafe(event);
-    } else {
-      dispatched_timers_.enqueue_unsafe(event);
-    }
+    events_queue_->enqueue_unsafe(event);
 
     executed_timers++;
     // Executing a timer will result in updating its time_until_trigger, so re-heapify
@@ -238,7 +235,6 @@ void TimersManager::enqueue_ready_timers_unsafe()
     // is executing. locked_heap will get resorted when this function is called again
   }
   events_queue_->queue_unlock();
-  dispatched_timers_.queue_unlock();
 
   // After having performed work on the locked heap we reflect the changes to weak one.
   // Timers will be already sorted the next time we need them if none went out of scope.
@@ -288,8 +284,9 @@ void TimersManager::run_timers()
   // to allow restarting the timers thread.
   RCPPUTILS_SCOPE_EXIT(this->running_.store(false); );
 
+  // TODO: Dropping a breakpoint here fixes locking issue
   // Set thread priority to 90 under SCHED_FIFO, if this thread is only dispatching
-  if (events_queue_ != nullptr) {
+  if (!separate_thread_) {
     struct sched_param params;
     params.sched_priority = 90;
     int ret = pthread_setschedparam(pthread_self(), SCHED_FIFO, &params);
@@ -306,7 +303,7 @@ void TimersManager::run_timers()
       std::chrono::nanoseconds time_to_sleep = get_head_timeout_unsafe();
 
       // No need to wait if a timer is already available
-      if (time_to_sleep > std::chrono::nanoseconds::zero() && dispatched_timers_.empty()) {
+      if (time_to_sleep > std::chrono::nanoseconds::zero() && events_queue_->empty()) {
         if (time_to_sleep != std::chrono::nanoseconds::max()) {
           // Wait until timeout or notification that timers have been updated
           timers_cv_.wait_for(lock, time_to_sleep, [this]() {return timers_updated_;});
@@ -324,11 +321,11 @@ void TimersManager::run_timers()
     }
 
     // Execute timer, if applicable
-    if (events_queue_ == nullptr) {
+    if (separate_thread_ && !events_queue_->empty()) {
       // dequeue will only block if there are no events. If there are no events, we'd still be
       // waiting on the timer_cv_ above, so this would never be reached
       ExecutorEvent event;
-      dispatched_timers_.dequeue(event);
+      events_queue_->dequeue(event);
       execute_ready_timer(static_cast<const rclcpp::TimerBase *>(event.entity_key));
     }
   }
