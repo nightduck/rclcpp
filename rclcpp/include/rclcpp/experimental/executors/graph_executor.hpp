@@ -20,7 +20,7 @@
 
 #include "rclcpp/rclcpp.hpp"
 #include "rclcpp/executor.hpp"
-#include "rclcpp/experimental/executors/events_executor/events_executor.hpp"
+#include "rclcpp/experimental/executors/events_executor/events_executor_rt.hpp"
 #include "rclcpp/experimental/executors/events_executor/priority_events_queue.hpp"
 #include "rclcpp/experimental/graph_executable.hpp"
 
@@ -31,7 +31,7 @@ namespace experimental
 namespace executors
 {
   
-class GraphExecutor : public EventsExecutor
+class GraphExecutor : public EventsExecutorRT
 {
 public:
   RCLCPP_SMART_PTR_DEFINITIONS(GraphExecutor)
@@ -46,7 +46,7 @@ public:
 
   /// Add a node to the executor.
   /**
-   * \sa rclcpp::experimental::executors::EventsExecutor::add_node
+   * \sa rclcpp::experimental::executors::EventsExecutorRT::add_node
    */
   RCLCPP_PUBLIC
   void
@@ -56,7 +56,7 @@ public:
 
   /// Convenience function which takes Node and forwards NodeBaseInterface.
   /**
-   * \sa rclcpp::EventsExecutor::add_node
+   * \sa rclcpp::EventsExecutorRT::add_node
    */
   RCLCPP_PUBLIC
   void
@@ -64,7 +64,7 @@ public:
 
   /// Remove a node from the executor.
   /**
-   * \sa rclcpp::experimental::executors::EventsExecutor::remove_node
+   * \sa rclcpp::experimental::executors::EventsExecutorRT::remove_node
    */
   RCLCPP_PUBLIC
   void
@@ -74,7 +74,7 @@ public:
 
   /// Convenience function which takes Node and forwards NodeBaseInterface.
   /**
-   * \sa rclcpp::experimental::executors::EventsExecutor::remove_node
+   * \sa rclcpp::experimental::executors::EventsExecutorRT::remove_node
    */
   RCLCPP_PUBLIC
   void

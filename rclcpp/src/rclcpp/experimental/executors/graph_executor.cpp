@@ -15,11 +15,11 @@
 #include "rclcpp/experimental/executors/graph_executor.hpp"
 
 using rclcpp::experimental::executors::GraphExecutor;
-using rclcpp::experimental::executors::EventsExecutor;
+using rclcpp::experimental::executors::EventsExecutorRT;
 using rclcpp::experimental::executors::PriorityEventsQueue;
 
 GraphExecutor::GraphExecutor(EventsQueue::UniquePtr timers_queue)
-: EventsExecutor(std::make_unique<PriorityEventsQueue>(), std::move(timers_queue))
+: EventsExecutorRT(std::make_unique<PriorityEventsQueue>(), std::move(timers_queue))
 {
 }
 
@@ -30,7 +30,7 @@ GraphExecutor::~GraphExecutor()
 void
 GraphExecutor::add_node(rclcpp::node_interfaces::NodeBaseInterface::SharedPtr node_ptr, bool notify)
 {
-  EventsExecutor::add_node(node_ptr, notify);
+  EventsExecutorRT::add_node(node_ptr, notify);
 
   // Examine timers and subs in node and add to graph
   node_ptr->for_each_callback_group(
@@ -201,7 +201,7 @@ GraphExecutor::remove_node(
   // TODO(nightduck): Find timers and subs in node and remove from graph
   // TODO(nightduck): Recalculate ordering of graph and assign priorities or deadlines
 
-  EventsExecutor::remove_node(node_ptr, notify);
+  EventsExecutorRT::remove_node(node_ptr, notify);
 }
 
 void

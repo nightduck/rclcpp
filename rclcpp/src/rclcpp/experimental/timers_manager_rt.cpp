@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "rclcpp/experimental/timers_manager.hpp"
+#include "rclcpp/experimental/timers_manager_rt.hpp"
 
 #include <inttypes.h>
 
@@ -24,11 +24,11 @@
 #include "rcpputils/scope_exit.hpp"
 #include "rclcpp/logging.hpp"
 
-using rclcpp::experimental::TimersManager;
+using rclcpp::experimental::TimersManagerRT;
 using rclcpp::experimental::executors::ExecutorEvent;
 using rclcpp::experimental::executors::ExecutorEventType;
 
-TimersManager::TimersManager(
+TimersManagerRT::TimersManagerRT(
   std::shared_ptr<rclcpp::Context> context,
   executors::EventsQueue::SharedPtr events_queue,
   bool separate_thread)
@@ -38,7 +38,7 @@ TimersManager::TimersManager(
 {
 }
 
-TimersManager::~TimersManager()
+TimersManagerRT::~TimersManagerRT()
 {
   // Remove all timers
   this->clear();
@@ -47,7 +47,7 @@ TimersManager::~TimersManager()
   this->stop();
 }
 
-void TimersManager::add_timer(rclcpp::TimerBase::SharedPtr timer)
+void TimersManagerRT::add_timer(rclcpp::TimerBase::SharedPtr timer)
 {
   if (!timer) {
     throw std::invalid_argument("TimersManager::add_timer() trying to add nullptr timer");
@@ -76,17 +76,17 @@ void TimersManager::add_timer(rclcpp::TimerBase::SharedPtr timer)
   }
 }
 
-void TimersManager::start()
+void TimersManagerRT::start()
 {
   // Make sure that the thread is not already running
   if (running_.exchange(true)) {
     throw std::runtime_error("TimersManager::start() can't start timers thread as already running");
   }
 
-  timers_thread_ = std::thread(&TimersManager::run_timers, this);
+  timers_thread_ = std::thread(&TimersManagerRT::run_timers, this);
 }
 
-void TimersManager::stop()
+void TimersManagerRT::stop()
 {
   // Lock stop() function to prevent race condition in destructor
   std::unique_lock<std::mutex> lock(stop_mutex_);
@@ -105,7 +105,7 @@ void TimersManager::stop()
   }
 }
 
-std::chrono::nanoseconds TimersManager::get_head_timeout()
+std::chrono::nanoseconds TimersManagerRT::get_head_timeout()
 {
   // Do not allow to interfere with the thread running
   if (running_) {
@@ -117,7 +117,7 @@ std::chrono::nanoseconds TimersManager::get_head_timeout()
   return this->get_head_timeout_unsafe();
 }
 
-size_t TimersManager::get_number_ready_timers()
+size_t TimersManagerRT::get_number_ready_timers()
 {
   // Do not allow to interfere with the thread running
   if (running_) {
@@ -130,7 +130,7 @@ size_t TimersManager::get_number_ready_timers()
   return locked_heap.get_number_ready_timers();
 }
 
-bool TimersManager::execute_head_timer()
+bool TimersManagerRT::execute_head_timer()
 {
   // Do not allow to interfere with the thread running
   if (running_) {
@@ -162,7 +162,7 @@ bool TimersManager::execute_head_timer()
   return timer_ready;
 }
 
-void TimersManager::execute_ready_timer(const rclcpp::TimerBase * timer_id)
+void TimersManagerRT::execute_ready_timer(const rclcpp::TimerBase * timer_id)
 {
   TimerPtr ready_timer;
   {
@@ -174,7 +174,7 @@ void TimersManager::execute_ready_timer(const rclcpp::TimerBase * timer_id)
   }
 }
 
-std::chrono::nanoseconds TimersManager::get_head_timeout_unsafe()
+std::chrono::nanoseconds TimersManagerRT::get_head_timeout_unsafe()
 {
   // If we don't have any weak pointer, then we just return maximum timeout
   if (weak_timers_heap_.empty()) {
@@ -200,7 +200,7 @@ std::chrono::nanoseconds TimersManager::get_head_timeout_unsafe()
   return head_timer->time_until_trigger();
 }
 
-void TimersManager::enqueue_ready_timers_unsafe()
+void TimersManagerRT::enqueue_ready_timers_unsafe()
 {
   // We start by locking the timers
   TimersHeap locked_heap = weak_timers_heap_.validate_and_lock();
@@ -278,7 +278,7 @@ void TimersManager::enqueue_ready_timers_unsafe()
 //   weak_timers_heap_.store(locked_heap);
 // }
 
-void TimersManager::run_timers()
+void TimersManagerRT::run_timers()
 {
   // Make sure the running flag is set to false when we exit from this function
   // to allow restarting the timers thread.
@@ -331,7 +331,7 @@ void TimersManager::run_timers()
   }
 }
 
-void TimersManager::clear()
+void TimersManagerRT::clear()
 {
   {
     // Lock mutex and then clear all data structures
@@ -349,7 +349,7 @@ void TimersManager::clear()
   timers_cv_.notify_one();
 }
 
-void TimersManager::remove_timer(TimerPtr timer)
+void TimersManagerRT::remove_timer(TimerPtr timer)
 {
   bool removed = false;
   {

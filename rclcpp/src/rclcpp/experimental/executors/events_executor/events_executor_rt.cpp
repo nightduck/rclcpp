@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "rclcpp/experimental/executors/events_executor/events_executor.hpp"
+#include "rclcpp/experimental/executors/events_executor/events_executor_rt.hpp"
 
 #include <memory>
 #include <utility>
@@ -22,9 +22,9 @@
 
 using namespace std::chrono_literals;
 
-using rclcpp::experimental::executors::EventsExecutor;
+using rclcpp::experimental::executors::EventsExecutorRT;
 
-EventsExecutor::EventsExecutor(
+EventsExecutorRT::EventsExecutorRT(
   rclcpp::experimental::executors::EventsQueue::UniquePtr events_queue,
   rclcpp::experimental::executors::EventsQueue::UniquePtr timers_queue,
   const rclcpp::ExecutorOptions & options)
@@ -49,7 +49,7 @@ EventsExecutor::EventsExecutor(
   //     };
   // }
   timers_manager_ =
-    std::make_shared<rclcpp::experimental::TimersManager>(
+    std::make_shared<rclcpp::experimental::TimersManagerRT>(
       context_,
       separate_thread ? std::move(timers_queue) : events_queue_,
       separate_thread);
@@ -100,7 +100,7 @@ EventsExecutor::EventsExecutor(
     std::make_shared<rclcpp::executors::ExecutorEntitiesCollector>(notify_waitable_);
 }
 
-EventsExecutor::~EventsExecutor()
+EventsExecutorRT::~EventsExecutorRT()
 {
   spinning.store(false);
   notify_waitable_->clear_on_ready_callback();
@@ -108,7 +108,7 @@ EventsExecutor::~EventsExecutor()
 }
 
 void
-EventsExecutor::spin()
+EventsExecutorRT::spin()
 {
   if (spinning.exchange(true)) {
     throw std::runtime_error("spin() called while already spinning");
@@ -129,13 +129,13 @@ EventsExecutor::spin()
 }
 
 void
-EventsExecutor::spin_some(std::chrono::nanoseconds max_duration)
+EventsExecutorRT::spin_some(std::chrono::nanoseconds max_duration)
 {
   return this->spin_some_impl(max_duration, false);
 }
 
 void
-EventsExecutor::spin_all(std::chrono::nanoseconds max_duration)
+EventsExecutorRT::spin_all(std::chrono::nanoseconds max_duration)
 {
   if (max_duration <= 0ns) {
     throw std::invalid_argument("max_duration must be positive");
@@ -144,7 +144,7 @@ EventsExecutor::spin_all(std::chrono::nanoseconds max_duration)
 }
 
 void
-EventsExecutor::spin_some_impl(std::chrono::nanoseconds max_duration, bool exhaustive)
+EventsExecutorRT::spin_some_impl(std::chrono::nanoseconds max_duration, bool exhaustive)
 {
   if (spinning.exchange(true)) {
     throw std::runtime_error("spin_some() called while already spinning");
@@ -203,7 +203,7 @@ EventsExecutor::spin_some_impl(std::chrono::nanoseconds max_duration, bool exhau
 }
 
 void
-EventsExecutor::spin_once_impl(std::chrono::nanoseconds timeout)
+EventsExecutorRT::spin_once_impl(std::chrono::nanoseconds timeout)
 {
   // In this context a negative input timeout means no timeout
   if (timeout < 0ns) {
@@ -231,7 +231,7 @@ EventsExecutor::spin_once_impl(std::chrono::nanoseconds timeout)
 }
 
 void
-EventsExecutor::add_node(
+EventsExecutorRT::add_node(
   rclcpp::node_interfaces::NodeBaseInterface::SharedPtr node_ptr, bool notify)
 {
   // This field is unused because we don't have to wake up the executor when a node is added.
@@ -244,13 +244,13 @@ EventsExecutor::add_node(
 }
 
 void
-EventsExecutor::add_node(std::shared_ptr<rclcpp::Node> node_ptr, bool notify)
+EventsExecutorRT::add_node(std::shared_ptr<rclcpp::Node> node_ptr, bool notify)
 {
   this->add_node(node_ptr->get_node_base_interface(), notify);
 }
 
 void
-EventsExecutor::remove_node(
+EventsExecutorRT::remove_node(
   rclcpp::node_interfaces::NodeBaseInterface::SharedPtr node_ptr, bool notify)
 {
   // This field is unused because we don't have to wake up the executor when a node is removed.
@@ -266,13 +266,13 @@ EventsExecutor::remove_node(
 }
 
 void
-EventsExecutor::remove_node(std::shared_ptr<rclcpp::Node> node_ptr, bool notify)
+EventsExecutorRT::remove_node(std::shared_ptr<rclcpp::Node> node_ptr, bool notify)
 {
   this->remove_node(node_ptr->get_node_base_interface(), notify);
 }
 
 void
-EventsExecutor::execute_event(const ExecutorEvent & event)
+EventsExecutorRT::execute_event(const ExecutorEvent & event)
 {
   switch (event.type) {
     case ExecutorEventType::CLIENT_EVENT:
@@ -352,7 +352,7 @@ EventsExecutor::execute_event(const ExecutorEvent & event)
 }
 
 void
-EventsExecutor::add_callback_group(
+EventsExecutorRT::add_callback_group(
   rclcpp::CallbackGroup::SharedPtr group_ptr,
   rclcpp::node_interfaces::NodeBaseInterface::SharedPtr node_ptr,
   bool notify)
@@ -368,7 +368,7 @@ EventsExecutor::add_callback_group(
 }
 
 void
-EventsExecutor::remove_callback_group(
+EventsExecutorRT::remove_callback_group(
   rclcpp::CallbackGroup::SharedPtr group_ptr, bool notify)
 {
   // This field is unused because we don't have to wake up
@@ -381,28 +381,28 @@ EventsExecutor::remove_callback_group(
 }
 
 std::vector<rclcpp::CallbackGroup::WeakPtr>
-EventsExecutor::get_all_callback_groups()
+EventsExecutorRT::get_all_callback_groups()
 {
   this->entities_collector_->update_collections();
   return this->entities_collector_->get_all_callback_groups();
 }
 
 std::vector<rclcpp::CallbackGroup::WeakPtr>
-EventsExecutor::get_manually_added_callback_groups()
+EventsExecutorRT::get_manually_added_callback_groups()
 {
   this->entities_collector_->update_collections();
   return this->entities_collector_->get_manually_added_callback_groups();
 }
 
 std::vector<rclcpp::CallbackGroup::WeakPtr>
-EventsExecutor::get_automatically_added_callback_groups_from_nodes()
+EventsExecutorRT::get_automatically_added_callback_groups_from_nodes()
 {
   this->entities_collector_->update_collections();
   return this->entities_collector_->get_automatically_added_callback_groups();
 }
 
 void
-EventsExecutor::refresh_current_collection_from_callback_groups()
+EventsExecutorRT::refresh_current_collection_from_callback_groups()
 {
   // Build the new collection
   this->entities_collector_->update_collections();
@@ -428,7 +428,7 @@ EventsExecutor::refresh_current_collection_from_callback_groups()
 }
 
 void
-EventsExecutor::refresh_current_collection(
+EventsExecutorRT::refresh_current_collection(
   const rclcpp::executors::ExecutorEntitiesCollection & new_collection)
 {
   // Acquire lock before modifying the current collection
@@ -483,7 +483,7 @@ EventsExecutor::refresh_current_collection(
 }
 
 std::function<void(size_t)>
-EventsExecutor::create_entity_callback(
+EventsExecutorRT::create_entity_callback(
   void * entity_key, ExecutorEventType event_type)
 {
   std::function<void(size_t)>
@@ -495,7 +495,7 @@ EventsExecutor::create_entity_callback(
 }
 
 std::function<void(size_t, int)>
-EventsExecutor::create_waitable_callback(const rclcpp::Waitable * entity_key)
+EventsExecutorRT::create_waitable_callback(const rclcpp::Waitable * entity_key)
 {
   std::function<void(size_t, int)>
   callback = [this, entity_key](size_t num_events, int waitable_data) {
@@ -507,7 +507,7 @@ EventsExecutor::create_waitable_callback(const rclcpp::Waitable * entity_key)
 }
 
 void
-EventsExecutor::add_notify_waitable_to_collection(
+EventsExecutorRT::add_notify_waitable_to_collection(
   rclcpp::executors::ExecutorEntitiesCollection::WaitableCollection & collection)
 {
   // The notify waitable is not associated to any group, so use an invalid one

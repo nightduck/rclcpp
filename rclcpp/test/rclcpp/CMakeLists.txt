@@ -398,10 +398,16 @@ if(TARGET test_timer)
   target_link_libraries(test_timer ${PROJECT_NAME} mimick rcl::rcl)
 endif()
 
-ament_add_gtest(test_timers_manager test_timers_manager.cpp
+# ament_add_gtest(test_timers_manager test_timers_manager.cpp
+#   APPEND_LIBRARY_DIRS "${append_library_dirs}")
+# if(TARGET test_timers_manager)
+#   target_link_libraries(test_timers_manager ${PROJECT_NAME})
+# endif()
+
+ament_add_gtest(test_timers_manager_rt test_timers_manager_rt.cpp
   APPEND_LIBRARY_DIRS "${append_library_dirs}")
-if(TARGET test_timers_manager)
-  target_link_libraries(test_timers_manager ${PROJECT_NAME})
+if(TARGET test_timers_manager_rt)
+  target_link_libraries(test_timers_manager_rt ${PROJECT_NAME})
 endif()
 
 ament_add_gtest(test_time_source test_time_source.cpp
@@ -471,9 +477,14 @@ if(TARGET test_executor_notify_waitable)
   target_link_libraries(test_executor_notify_waitable ${PROJECT_NAME} mimick rcpputils::rcpputils)
 endif()
 
-ament_add_gtest(test_events_executor executors/test_events_executor.cpp TIMEOUT 5)
-if(TARGET test_events_executor)
-  target_link_libraries(test_events_executor ${PROJECT_NAME} ${test_msgs_TARGETS})
+# ament_add_gtest(test_events_executor executors/test_events_executor.cpp TIMEOUT 5)
+# if(TARGET test_events_executor)
+#   target_link_libraries(test_events_executor ${PROJECT_NAME} ${test_msgs_TARGETS})
+# endif()
+
+ament_add_gtest(test_events_executor_rt executors/test_events_executor_rt.cpp TIMEOUT 5)
+if(TARGET test_events_executor_rt)
+  target_link_libraries(test_events_executor_rt ${PROJECT_NAME} ${test_msgs_TARGETS})
 endif()
 
 ament_add_gtest(test_events_queue executors/test_events_queue.cpp

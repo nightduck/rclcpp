@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef RCLCPP__EXPERIMENTAL__TIMERS_MANAGER_HPP_
-#define RCLCPP__EXPERIMENTAL__TIMERS_MANAGER_HPP_
+#ifndef RCLCPP__EXPERIMENTAL__TIMERS_MANAGER_RT_HPP_
+#define RCLCPP__EXPERIMENTAL__TIMERS_MANAGER_RT_HPP_
 
 #include <algorithm>
 #include <atomic>
@@ -51,7 +51,7 @@ namespace experimental
  * Because of this, they have a not-negligible impact on the performance.
  *
  * Timers execution
- * The most efficient use of this class consists in letting a TimersManager object
+ * The most efficient use of this class consists in letting a TimersManagerRT object
  * to spawn a thread where timers are monitored and optionally executed.
  * This can be controlled via the `start` and `stop` methods.
  * Ready timers can either be executed or an on_ready_callback can be used to notify
@@ -64,39 +64,39 @@ namespace experimental
  * so timers may be executed out of order, without this object noticing it.
  *
  */
-class TimersManager
+class TimersManagerRT
 {
 public:
-  RCLCPP_SMART_PTR_DEFINITIONS_NOT_COPYABLE(TimersManager)
+  RCLCPP_SMART_PTR_DEFINITIONS_NOT_COPYABLE(TimersManagerRT)
 
   /**
-   * @brief Construct a new TimersManager object
+   * @brief Construct a new TimersManagerRT object
    *
    * @param context custom context to be used.
    * Shared ownership of the context is held until destruction.
    * @param on_ready_callback The timers on ready callback. The presence of this function
-   * indicates what to do when the TimersManager is running and a timer becomes ready.
-   * The TimersManager is considered "running" when the `start` method has been called.
+   * indicates what to do when the TimersManagerRT is running and a timer becomes ready.
+   * The TimersManagerRT is considered "running" when the `start` method has been called.
    * If it's callable, it will be invoked instead of the timer callback.
-   * If it's not callable, then the TimersManager will
+   * If it's not callable, then the TimersManagerRT will
    * directly execute timers when they are ready.
    * All the methods that execute a given timer (e.g. `execute_head_timer`
-   * or `execute_ready_timer`) without the TimersManager being `running`, i.e.
+   * or `execute_ready_timer`) without the TimersManagerRT being `running`, i.e.
    * without actually explicitly waiting for the timer to become ready, will ignore this
    * callback.
    */
   RCLCPP_PUBLIC
-  TimersManager(
+  TimersManagerRT(
     std::shared_ptr<rclcpp::Context> context,
     executors::EventsQueue::SharedPtr events_queue = nullptr,
     bool separate_thread = false);
     // std::function<void(const rclcpp::TimerBase *)> on_ready_callback = nullptr);
 
   /**
-   * @brief Destruct the TimersManager object making sure to stop thread and release memory.
+   * @brief Destruct the TimersManagerRT object making sure to stop thread and release memory.
    */
   RCLCPP_PUBLIC
-  ~TimersManager();
+  ~TimersManagerRT();
 
   /**
    * @brief Adds a new timer to the storage, maintaining weak ownership of it.
@@ -153,7 +153,7 @@ public:
    * @brief Executes head timer if ready.
    * This function is thread safe.
    * This function will try to execute the timer callback regardless of whether
-   * the TimersManager on_ready_callback was passed during construction.
+   * the TimersManagerRT on_ready_callback was passed during construction.
    *
    * @return true if head timer was ready.
    * @throws std::runtime_error if the timers thread was already running.
@@ -165,7 +165,7 @@ public:
    * @brief Executes timer identified by its ID.
    * This function is thread safe.
    * This function will try to execute the timer callback regardless of whether
-   * the TimersManager on_ready_callback was passed during construction.
+   * the TimersManagerRT on_ready_callback was passed during construction.
    *
    * @param timer_id the timer ID of the timer to execute
    */
@@ -185,7 +185,7 @@ public:
   std::chrono::nanoseconds get_head_timeout();
 
 private:
-  RCLCPP_DISABLE_COPY(TimersManager)
+  RCLCPP_DISABLE_COPY(TimersManagerRT)
 
   using TimerPtr = rclcpp::TimerBase::SharedPtr;
   using WeakTimerPtr = rclcpp::TimerBase::WeakPtr;
@@ -565,4 +565,4 @@ private:
 }  // namespace experimental
 }  // namespace rclcpp
 
-#endif  // RCLCPP__EXPERIMENTAL__TIMERS_MANAGER_HPP_
+#endif  // RCLCPP__EXPERIMENTAL__TIMERS_MANAGER_RT_HPP_

@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef RCLCPP__EXPERIMENTAL__EXECUTORS__EVENTS_EXECUTOR__EVENTS_EXECUTOR_HPP_
-#define RCLCPP__EXPERIMENTAL__EXECUTORS__EVENTS_EXECUTOR__EVENTS_EXECUTOR_HPP_
+#ifndef RCLCPP__EXPERIMENTAL__EXECUTORS__EVENTS_EXECUTOR__EVENTS_EXECUTOR_RT_HPP_
+#define RCLCPP__EXPERIMENTAL__EXECUTORS__EVENTS_EXECUTOR__EVENTS_EXECUTOR_RT_HPP_
 
 #include <atomic>
 #include <chrono>
@@ -26,7 +26,7 @@
 #include "rclcpp/experimental/executors/events_executor/events_executor_event_types.hpp"
 #include "rclcpp/experimental/executors/events_executor/events_queue.hpp"
 #include "rclcpp/experimental/executors/events_executor/simple_events_queue.hpp"
-#include "rclcpp/experimental/timers_manager.hpp"
+#include "rclcpp/experimental/timers_manager_rt.hpp"
 #include "rclcpp/node.hpp"
 
 namespace rclcpp
@@ -52,17 +52,17 @@ namespace executors
  * their related events.
  *
  * To run this executor:
- * rclcpp::experimental::executors::EventsExecutor executor;
+ * rclcpp::experimental::executors::EventsExecutorRT executor;
  * executor.add_node(node);
  * executor.spin();
  * executor.remove_node(node);
  */
-class EventsExecutor : public rclcpp::Executor
+class EventsExecutorRT : public rclcpp::Executor
 {
   friend class EventsExecutorEntitiesCollector;
 
 public:
-  RCLCPP_SMART_PTR_DEFINITIONS(EventsExecutor)
+  RCLCPP_SMART_PTR_DEFINITIONS(EventsExecutorRT)
 
   /// Default constructor. See the default constructor for Executor.
   /**
@@ -72,7 +72,7 @@ public:
    * \param[in] options Options used to configure the executor.
    */
   RCLCPP_PUBLIC
-  explicit EventsExecutor(
+  explicit EventsExecutorRT(
     rclcpp::experimental::executors::EventsQueue::UniquePtr events_queue = std::make_unique<
       rclcpp::experimental::executors::SimpleEventsQueue>(),
     rclcpp::experimental::executors::EventsQueue::UniquePtr timers_queue = nullptr,
@@ -80,7 +80,7 @@ public:
 
   /// Default destructor.
   RCLCPP_PUBLIC
-  virtual ~EventsExecutor();
+  virtual ~EventsExecutorRT();
 
   /// Events executor implementation of spin.
   /**
@@ -140,7 +140,7 @@ public:
 
   /// Convenience function which takes Node and forwards NodeBaseInterface.
   /**
-   * \sa rclcpp::EventsExecutor::add_node
+   * \sa rclcpp::EventsExecutorRT::add_node
    */
   RCLCPP_PUBLIC
   void
@@ -224,7 +224,7 @@ protected:
   rclcpp::experimental::executors::EventsQueue::SharedPtr events_queue_;
 
 private:
-  RCLCPP_DISABLE_COPY(EventsExecutor)
+  RCLCPP_DISABLE_COPY(EventsExecutorRT)
 
   /// Execute a provided executor event if its associated entities are available
   void
@@ -284,11 +284,11 @@ private:
   std::atomic<bool> notify_waitable_event_pushed_ {false};
 
   /// Timers manager used to track and/or execute associated timers
-  std::shared_ptr<rclcpp::experimental::TimersManager> timers_manager_;
+  std::shared_ptr<rclcpp::experimental::TimersManagerRT> timers_manager_;
 };
 
 }  // namespace executors
 }  // namespace experimental
 }  // namespace rclcpp
 
-#endif  // RCLCPP__EXPERIMENTAL__EXECUTORS__EVENTS_EXECUTOR__EVENTS_EXECUTOR_HPP_
+#endif  // RCLCPP__EXPERIMENTAL__EXECUTORS__EVENTS_EXECUTOR__EVENTS_EXECUTOR_RT_HPP_

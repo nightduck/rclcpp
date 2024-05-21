@@ -18,14 +18,14 @@
 #include <memory>
 #include <string>
 
-#include "rclcpp/experimental/executors/events_executor/events_executor.hpp"
+#include "rclcpp/experimental/executors/events_executor/events_executor_rt.hpp"
 
 #include "test_msgs/srv/empty.hpp"
 #include "test_msgs/msg/empty.hpp"
 
 using namespace std::chrono_literals;
 
-using rclcpp::experimental::executors::EventsExecutor;
+using rclcpp::experimental::executors::EventsExecutorRT;
 
 class TestEventsExecutor : public ::testing::Test
 {
@@ -56,7 +56,7 @@ TEST_F(TestEventsExecutor, run_pub_sub)
 
   auto publisher = node->create_publisher<test_msgs::msg::Empty>("topic", rclcpp::SensorDataQoS());
 
-  EventsExecutor executor;
+  EventsExecutorRT executor;
   executor.add_node(node);
 
   bool spin_exited = false;
@@ -103,7 +103,7 @@ TEST_F(TestEventsExecutor, run_clients_servers)
     });
   auto client = node->create_client<test_msgs::srv::Empty>("service");
 
-  EventsExecutor executor;
+  EventsExecutorRT executor;
   executor.add_node(node);
 
   bool spin_exited = false;
@@ -143,7 +143,7 @@ TEST_F(TestEventsExecutor, spin_once_max_duration_timeout)
 {
   auto node = std::make_shared<rclcpp::Node>("node");
 
-  EventsExecutor executor;
+  EventsExecutorRT executor;
   executor.add_node(node);
 
   // Consume previous events so we have a fresh start
@@ -175,7 +175,7 @@ TEST_F(TestEventsExecutor, spin_once_max_duration_timer)
 {
   auto node = std::make_shared<rclcpp::Node>("node");
 
-  EventsExecutor executor;
+  EventsExecutorRT executor;
   executor.add_node(node);
 
   // Consume previous events so we have a fresh start
@@ -214,7 +214,7 @@ TEST_F(TestEventsExecutor, spin_some_max_duration)
         t_runs++;
       });
 
-    EventsExecutor executor;
+    EventsExecutorRT executor;
     executor.add_node(node);
 
     auto start = std::chrono::steady_clock::now();
@@ -237,7 +237,7 @@ TEST_F(TestEventsExecutor, spin_some_max_duration)
     // Sleep some time for the timer to be ready when spin
     std::this_thread::sleep_for(10ms);
 
-    EventsExecutor executor;
+    EventsExecutorRT executor;
     executor.add_node(node);
 
     auto start = std::chrono::steady_clock::now();
@@ -262,7 +262,7 @@ TEST_F(TestEventsExecutor, spin_some_zero_duration)
   // Sleep some time for the timer to be ready when spin
   std::this_thread::sleep_for(20ms);
 
-  EventsExecutor executor;
+  EventsExecutorRT executor;
   executor.add_node(node);
   executor.spin_some(0ms);
 
@@ -281,7 +281,7 @@ TEST_F(TestEventsExecutor, spin_all_max_duration)
         t_runs++;
       });
 
-    EventsExecutor executor;
+    EventsExecutorRT executor;
     executor.add_node(node);
 
     auto start = std::chrono::steady_clock::now();
@@ -304,7 +304,7 @@ TEST_F(TestEventsExecutor, spin_all_max_duration)
     // Sleep some time for the timer to be ready when spin
     std::this_thread::sleep_for(10ms);
 
-    EventsExecutor executor;
+    EventsExecutorRT executor;
     executor.add_node(node);
 
     auto start = std::chrono::steady_clock::now();
@@ -314,7 +314,7 @@ TEST_F(TestEventsExecutor, spin_all_max_duration)
     EXPECT_TRUE(std::chrono::steady_clock::now() - start < 200ms);
   }
 
-  EventsExecutor executor;
+  EventsExecutorRT executor;
   EXPECT_THROW(executor.spin_all(0ms), std::invalid_argument);
   EXPECT_THROW(executor.spin_all(-5ms), std::invalid_argument);
 }
@@ -323,7 +323,7 @@ TEST_F(TestEventsExecutor, cancel_while_timers_running)
 {
   auto node = std::make_shared<rclcpp::Node>("node");
 
-  EventsExecutor executor;
+  EventsExecutorRT executor;
   executor.add_node(node);
 
   // Take care of previous events for a fresh start
@@ -369,7 +369,7 @@ TEST_F(TestEventsExecutor, cancel_while_timers_waiting)
       t1_runs++;
     });
 
-  EventsExecutor executor;
+  EventsExecutorRT executor;
   executor.add_node(node);
 
   auto start = std::chrono::steady_clock::now();
@@ -393,7 +393,7 @@ TEST_F(TestEventsExecutor, destroy_entities)
   auto publisher = node_pub->create_publisher<test_msgs::msg::Empty>("topic", rclcpp::QoS(10));
   auto timer = node_pub->create_wall_timer(
     2ms, [&]() {publisher->publish(std::make_unique<test_msgs::msg::Empty>());});
-  EventsExecutor executor_pub;
+  EventsExecutorRT executor_pub;
   executor_pub.add_node(node_pub);
   std::thread spinner([&executor_pub]() {executor_pub.spin();});
 
@@ -407,7 +407,7 @@ TEST_F(TestEventsExecutor, destroy_entities)
   auto subscription_2 =
     node_sub->create_subscription<test_msgs::msg::Empty>(
     "topic", rclcpp::QoS(10), [&](test_msgs::msg::Empty::ConstSharedPtr) {callback_count_2++;});
-  EventsExecutor executor_sub;
+  EventsExecutorRT executor_sub;
   executor_sub.add_node(node_sub);
 
   // Wait some time while messages are published
@@ -473,7 +473,7 @@ TEST_F(TestEventsExecutor, test_default_incompatible_qos_callbacks)
   auto subscription = node->create_subscription<test_msgs::msg::Empty>(
     "test_topic", qos_profile_subscription, [&](test_msgs::msg::Empty::ConstSharedPtr) {});
 
-  EventsExecutor ex;
+  EventsExecutorRT ex;
   ex.add_node(node->get_node_base_interface());
 
   const auto timeout = std::chrono::seconds(10);

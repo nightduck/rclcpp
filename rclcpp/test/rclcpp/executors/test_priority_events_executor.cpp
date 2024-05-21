@@ -18,7 +18,7 @@
 #include <memory>
 #include <string>
 
-#include "rclcpp/experimental/executors/events_executor/events_executor.hpp"
+#include "rclcpp/experimental/executors/events_executor/events_executor_rt.hpp"
 #include "rclcpp/experimental/executors/events_executor/priority_events_queue.hpp"
 // #include "rclcpp/experimental/executors/events_executor/simple_events_queue.hpp"
 
@@ -27,7 +27,7 @@
 
 using namespace std::chrono_literals;
 
-using rclcpp::experimental::executors::EventsExecutor;
+using rclcpp::experimental::executors::EventsExecutorRT;
 using rclcpp::experimental::executors::PriorityEventsQueue;
 // using rclcpp::experimental::executors::SimpleEventsQueue;
 
@@ -131,7 +131,7 @@ TEST_F(TestPriorityEventsExecutor, priority_subs)
       }
       return 0UL;
     };
-  EventsExecutor executor(std::move(priority_queue));
+  EventsExecutorRT executor(std::move(priority_queue));
   executor.add_node(node);
 
 

@@ -89,7 +89,7 @@ using ExecutorTypes =
   rclcpp::executors::SingleThreadedExecutor,
   rclcpp::executors::MultiThreadedExecutor,
   rclcpp::executors::StaticSingleThreadedExecutor,
-  rclcpp::experimental::executors::EventsExecutor>;
+  rclcpp::experimental::executors::EventsExecutorRT>;
 
 class ExecutorTypeNames
 {
@@ -110,8 +110,8 @@ public:
       return "StaticSingleThreadedExecutor";
     }
 
-    if (std::is_same<T, rclcpp::experimental::executors::EventsExecutor>()) {
-      return "EventsExecutor";
+    if (std::is_same<T, rclcpp::experimental::executors::EventsExecutorRT>()) {
+      return "EventsExecutorRT";
     }
 
     return "";
@@ -128,7 +128,7 @@ using StandardExecutors =
   ::testing::Types<
   rclcpp::executors::SingleThreadedExecutor,
   rclcpp::executors::MultiThreadedExecutor,
-  rclcpp::experimental::executors::EventsExecutor>;
+  rclcpp::experimental::executors::EventsExecutorRT>;
 TYPED_TEST_SUITE(TestExecutorsStable, StandardExecutors, ExecutorTypeNames);
 
 // Make sure that executors detach from nodes when destructing
@@ -625,7 +625,7 @@ TYPED_TEST(TestExecutors, testRaceConditionAddNode)
   using ExecutorType = TypeParam;
   // rmw_connextdds doesn't support events-executor
   if (
-    std::is_same<ExecutorType, rclcpp::experimental::executors::EventsExecutor>() &&
+    std::is_same<ExecutorType, rclcpp::experimental::executors::EventsExecutorRT>() &&
     std::string(rmw_get_implementation_identifier()).find("rmw_connextdds") == 0)
   {
     GTEST_SKIP();
