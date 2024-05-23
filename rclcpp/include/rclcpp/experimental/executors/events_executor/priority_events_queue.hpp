@@ -34,7 +34,7 @@ namespace executors
 
 struct PriorityEvent
 {
-  int priority;
+  int64_t priority;
   rclcpp::experimental::executors::ExecutorEvent event;
 };
 
@@ -78,7 +78,7 @@ public:
   void
   enqueue(const rclcpp::experimental::executors::ExecutorEvent & event) override
   {
-    int priority = priority_[event.entity_key];
+    int64_t priority = priority_[event.entity_key];
     rclcpp::experimental::executors::PriorityEvent single_event = {priority, event};
     single_event.event.num_events = 1;
     {
@@ -99,7 +99,7 @@ public:
   void
   enqueue_unsafe(const rclcpp::experimental::executors::ExecutorEvent & event) override
   {
-    int priority = priority_[event.entity_key];
+    int64_t priority = priority_[event.entity_key];
     rclcpp::experimental::executors::PriorityEvent single_event = {priority, event};
     single_event.event.num_events = 1;
     event_queue_.push(single_event);
@@ -255,7 +255,7 @@ public:
   void
   enqueue(const rclcpp::experimental::executors::ExecutorEvent & event) override
   {
-    int priority;
+    int64_t priority;
     if (event.type == rclcpp::experimental::executors::ExecutorEventType::TIMER_EVENT) {
       priority = static_cast<const rclcpp::TimerBase *>(event.entity_key)->get_arrival_time();
     } else {
@@ -282,7 +282,7 @@ public:
   void
   enqueue_unsafe(const rclcpp::experimental::executors::ExecutorEvent & event)
   {
-    int priority;
+    int64_t priority;
     if (event.type == rclcpp::experimental::executors::ExecutorEventType::TIMER_EVENT) {
       priority = static_cast<const rclcpp::TimerBase *>(event.entity_key)->get_arrival_time();
     } else {
@@ -321,7 +321,7 @@ public:
   void
   enqueue(const rclcpp::experimental::executors::ExecutorEvent & event) override
   {
-    int priority;
+    int64_t priority;
     if (event.type == rclcpp::experimental::executors::ExecutorEventType::TIMER_EVENT) {
       priority = static_cast<const rclcpp::TimerBase *>(event.entity_key)->get_period();
     } else {
@@ -348,7 +348,7 @@ public:
   void
   enqueue_unsafe(const rclcpp::experimental::executors::ExecutorEvent & event)
   {
-    int priority;
+    int64_t priority;
     if (event.type == rclcpp::experimental::executors::ExecutorEventType::TIMER_EVENT) {
       priority = static_cast<const rclcpp::TimerBase *>(event.entity_key)->get_period();
     } else {
