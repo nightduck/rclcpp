@@ -32,8 +32,8 @@ TimersManagerRT::TimersManagerRT(
   std::shared_ptr<rclcpp::Context> context,
   executors::EventsQueue::SharedPtr events_queue,
   bool separate_thread)
-: events_queue_(events_queue),
-  context_(context),
+: context_(context),
+  events_queue_(events_queue),
   separate_thread_(separate_thread)
 {
 }

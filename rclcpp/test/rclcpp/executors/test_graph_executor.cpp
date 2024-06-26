@@ -107,7 +107,7 @@ TEST_F(TestGraphExecutor, add_unrelated_executables)
   // Create 1 subscription, test it gets added to graph_nodes_ correctly
   auto sub = node1->create_subscription<test_msgs::msg::Empty>(
     "sub_topic", rclcpp::SensorDataQoS(),
-    [](test_msgs::msg::Empty::ConstSharedPtr msg) {});
+    [](test_msgs::msg::Empty::ConstSharedPtr msg) {(void)msg;});
   executor.add_node(node1);
 
   // One we added, one for parameter_events, which is automatically generated for each node
@@ -183,11 +183,11 @@ TEST_F(TestGraphExecutor, add_parent_executables)
   auto pub1 = node1->create_publisher<test_msgs::msg::Empty>("/pub1", rclcpp::SensorDataQoS());
   auto sub1 = node1->create_subscription<test_msgs::msg::Empty>(
     "/pub1", rclcpp::SensorDataQoS(),
-    [](test_msgs::msg::Empty::ConstSharedPtr msg) {},
+    [](test_msgs::msg::Empty::ConstSharedPtr msg) {(void)msg;},
     {});
   auto sub2 = node1->create_subscription<test_msgs::msg::Empty>(
     "/pub2", rclcpp::SensorDataQoS(),
-    [](test_msgs::msg::Empty::ConstSharedPtr msg) {},
+    [](test_msgs::msg::Empty::ConstSharedPtr msg) {(void)msg;},
     {pub1});
   executor.add_node(node1);
 
@@ -253,7 +253,7 @@ TEST_F(TestGraphExecutor, add_parent_executables)
   auto pub2_b = node3->create_publisher<test_msgs::msg::Empty>("/pub2", rclcpp::SensorDataQoS());
   auto sub3 = node3->create_subscription<test_msgs::msg::Empty>(
     "/pub3", rclcpp::SensorDataQoS(),
-    [](test_msgs::msg::Empty::ConstSharedPtr msg) {},
+    [](test_msgs::msg::Empty::ConstSharedPtr msg) {(void)msg;},
     {pub2_b});
   executor.add_node(node3);
 
@@ -407,11 +407,11 @@ TEST_F(TestGraphExecutor, add_child_executables)
   auto pub2 = node2->create_publisher<test_msgs::msg::Empty>("/pub2", rclcpp::SensorDataQoS());
   auto sub1 = node2->create_subscription<test_msgs::msg::Empty>(
     "/pub1", rclcpp::SensorDataQoS(),
-    [](test_msgs::msg::Empty::ConstSharedPtr msg) {},
+    [](test_msgs::msg::Empty::ConstSharedPtr msg) {(void)msg;},
     {pub2});
   auto sub2 = node2->create_subscription<test_msgs::msg::Empty>(
     "/pub1", rclcpp::SensorDataQoS(),
-    [](test_msgs::msg::Empty::ConstSharedPtr msg) {},
+    [](test_msgs::msg::Empty::ConstSharedPtr msg) {(void)msg;},
     {pub2});
   rclcpp::experimental::graph_node_t::SharedPtr sub1_node;
   rclcpp::experimental::graph_node_t::SharedPtr sub2_node;
@@ -446,7 +446,7 @@ TEST_F(TestGraphExecutor, add_child_executables)
   auto node3 = std::make_shared<rclcpp::Node>("node3");
   auto sub3 = node3->create_subscription<test_msgs::msg::Empty>(
     "/pub2", rclcpp::SensorDataQoS(),
-    [](test_msgs::msg::Empty::ConstSharedPtr msg) {},
+    [](test_msgs::msg::Empty::ConstSharedPtr msg) {(void)msg;},
     {});
   executor.add_node(node3);
 
@@ -488,7 +488,7 @@ TEST_F(TestGraphExecutor, add_child_executables)
   auto node4 = std::make_shared<rclcpp::Node>("node4");
   auto sub4 = node4->create_subscription<test_msgs::msg::Empty>(
     "/pub3", rclcpp::SensorDataQoS(),
-    [](test_msgs::msg::Empty::ConstSharedPtr msg) {},
+    [](test_msgs::msg::Empty::ConstSharedPtr msg) {(void)msg;},
     {});
   rclcpp::experimental::graph_node_t::SharedPtr sub4_node;
   executor.add_node(node4);
@@ -513,7 +513,7 @@ TEST_F(TestGraphExecutor, add_child_executables)
   auto pub3 = node5->create_publisher<test_msgs::msg::Empty>("/pub3", rclcpp::SensorDataQoS());
   auto sub5 = node5->create_subscription<test_msgs::msg::Empty>(
     "/pub2", rclcpp::SensorDataQoS(),
-    [](test_msgs::msg::Empty::ConstSharedPtr msg) {},
+    [](test_msgs::msg::Empty::ConstSharedPtr msg) {(void)msg;},
     {pub3});
   executor.add_node(node5);
 

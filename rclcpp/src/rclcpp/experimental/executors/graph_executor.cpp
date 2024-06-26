@@ -117,6 +117,7 @@ GraphExecutor::add_node(rclcpp::node_interfaces::NodeBaseInterface::SharedPtr no
 
           },
           [this, weak_group_ptr](const rclcpp::ServiceBase::SharedPtr & service) {
+            (void)service;
             // Iterate over graph_nodes_
             // for (const auto & node : graph_nodes_) {
             //   // Access the key (executable entity) and value (graph node)
@@ -129,6 +130,7 @@ GraphExecutor::add_node(rclcpp::node_interfaces::NodeBaseInterface::SharedPtr no
             // }
           },
           [this, weak_group_ptr](const rclcpp::ClientBase::SharedPtr & client) {
+            (void)client;
             // TODO(nightduck): Add client to graph
           },
           [this, weak_group_ptr](const rclcpp::TimerBase::SharedPtr & timer) {
@@ -137,7 +139,10 @@ GraphExecutor::add_node(rclcpp::node_interfaces::NodeBaseInterface::SharedPtr no
             // Get graph_node object for the subscription
             auto tmr_node = timer->copy_graph_node();
             tmr_node->key = reinterpret_cast<void *>(timer.get());
-            rcl_timer_get_period(timer->get_timer_handle().get(), &tmr_node->period);
+            auto ret = rcl_timer_get_period(timer->get_timer_handle().get(), &tmr_node->period);
+            if (ret != RCL_RET_OK) {
+              // Handle error
+            }
 
             // Iterate over graph_nodes_
             for (const auto & child_node : graph_nodes_) {
@@ -177,6 +182,7 @@ GraphExecutor::add_node(rclcpp::node_interfaces::NodeBaseInterface::SharedPtr no
             }
           },
           [this, weak_group_ptr](const rclcpp::Waitable::SharedPtr & waitable) {
+            (void)waitable;
             // TODO(nightduck): Add waitable to graph
           });
       }
@@ -283,7 +289,7 @@ void GraphExecutor::assign_priority()
     });
 
   // Call recursively_increment_priority on each element of the list
-  int priority = graph_nodes_.size();
+  uint64_t priority = graph_nodes_.size();
   for (const auto & node : nodesWithoutParents) {
     priority = decrement_priority_bfs(node, priority);
   }
@@ -292,7 +298,7 @@ void GraphExecutor::assign_priority()
 void
 GraphExecutor::recursively_assign_value(
   const graph_node_t::SharedPtr & graph_node,
-  int64_t priority)
+  uint64_t priority)
 {
   graph_node->priority = priority;
   static_cast<PriorityEventsQueue *>(events_queue_.get())->set_priority(graph_node->key, priority);
@@ -303,10 +309,10 @@ GraphExecutor::recursively_assign_value(
 }
 
 // TODO: This is DFS, correct it to be BFS
-int
+uint64_t
 GraphExecutor::recursively_increment_priority(
   const graph_node_t::SharedPtr & graph_node,
-  int64_t priority)
+  uint64_t priority)
 {
   graph_node->priority = priority;
   static_cast<PriorityEventsQueue *>(events_queue_.get())->set_priority(graph_node->key, priority);
@@ -317,10 +323,10 @@ GraphExecutor::recursively_increment_priority(
   return priority;
 }
 
-int64_t
+uint64_t
 GraphExecutor::decrement_priority_bfs(
   const graph_node_t::SharedPtr & graph_node,
-  int64_t priority)
+  uint64_t priority)
 {
   std::queue<graph_node_t::SharedPtr> queue;
   queue.push(graph_node);

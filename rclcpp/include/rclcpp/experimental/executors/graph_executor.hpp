@@ -108,21 +108,21 @@ protected:
   void
   recursively_assign_value(
     const rclcpp::experimental::graph_node_t::SharedPtr & graph_node,
-    int64_t priority = 0);
+    uint64_t priority = 0);
 
   /// Recursively walk down tree in graph and increment priority as we go deeper
   RCLCPP_PUBLIC
-  int
+  uint64_t
   recursively_increment_priority(
     const rclcpp::experimental::graph_node_t::SharedPtr & graph_node,
-    int64_t priority);
+    uint64_t priority);
 
   /// Recursively walk down tree in graph and increment priority as we go deeper
   RCLCPP_PUBLIC
-  int64_t
+  uint64_t
   decrement_priority_bfs(
     const rclcpp::experimental::graph_node_t::SharedPtr & graph_node,
-    int64_t priority);
+    uint64_t priority);
 
   std::multimap<const void *, rclcpp::experimental::graph_node_t::SharedPtr> graph_nodes_;
 };

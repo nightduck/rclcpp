@@ -36,14 +36,11 @@ struct PriorityEvent
 {
   int64_t priority;
   rclcpp::experimental::executors::ExecutorEvent event;
-};
 
-struct ComparePriorities : public std::binary_function<PriorityEvent, PriorityEvent, bool>
-{
-  _GLIBCXX14_CONSTEXPR
-  bool
-  operator()(const PriorityEvent & __x, const PriorityEvent & __y) const
-  {return __x.priority > __y.priority;}
+  bool operator<(const PriorityEvent& rhs) const
+  {
+    return this->priority > rhs.priority;
+  }
 };
 
 /**
@@ -193,7 +190,7 @@ public:
    */
   RCLCPP_PUBLIC
   void
-  set_priority(const void * entity_id, int priority)
+  set_priority(const void * entity_id, uint64_t priority)
   {
     std::unique_lock<std::mutex> lock(mutex_);
     priority_[entity_id] = priority;
@@ -206,7 +203,7 @@ public:
    * @return The priority of the entity
    */
   RCLCPP_PUBLIC
-  int
+  uint64_t
   get_priority(const void * entity_id) const
   {
     std::unique_lock<std::mutex> lock(mutex_);
@@ -218,10 +215,9 @@ protected:
   // std::function<int(const rclcpp::experimental::executors::ExecutorEvent &)> extract_priority_;
   // The underlying queue implementation
   std::priority_queue<rclcpp::experimental::executors::PriorityEvent,
-    std::deque<rclcpp::experimental::executors::PriorityEvent>,
-    ComparePriorities> event_queue_;
+    std::deque<rclcpp::experimental::executors::PriorityEvent> > event_queue_;
   // Map entity_id to fixed priority
-  std::map<const void *, int> priority_;
+  std::map<const void *, uint64_t> priority_;
   // Mutex to protect read/write access to the queue
   mutable std::mutex mutex_;
   // Variable used to notify when an event is added to the queue
