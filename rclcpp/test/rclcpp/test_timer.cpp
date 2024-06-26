@@ -84,7 +84,7 @@ protected:
         }
         // prevent any tests running timer from blocking
         this->executor->cancel();
-      }, nullptr, false);
+      }, nullptr, {}, false);
     EXPECT_TRUE(timer_without_autostart->is_steady());
 
     executor->add_node(test_node);

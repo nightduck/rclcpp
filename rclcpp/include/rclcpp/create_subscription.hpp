@@ -64,7 +64,8 @@ create_subscription(
   ),
   typename MessageMemoryStrategyT::SharedPtr msg_mem_strat = (
     MessageMemoryStrategyT::create_default()
-  )
+  ),
+  std::initializer_list<rclcpp::PublisherBase::SharedPtr> publishers = {}
 )
 {
   using rclcpp::node_interfaces::get_node_topics_interface;
@@ -133,6 +134,17 @@ create_subscription(
     qos;
 
   auto sub = node_topics_interface->create_subscription(topic_name, factory, actual_qos);
+
+  // Get any subscriptions downstream from the publisher and add their graph_node_t to this one
+  for (auto & publisher : publishers) {
+    auto topic_name = publisher->get_topic_name();
+    sub->add_output_topic(topic_name);
+  }
+
+  // Add input topic name and link to rcl_subscription_t pointer
+  sub->add_input_topic(sub->get_topic_name());
+  sub->add_key(sub->get_subscription_handle().get());
+
   node_topics_interface->add_subscription(sub, options.callback_group);
 
   return std::dynamic_pointer_cast<SubscriptionT>(sub);
@@ -183,12 +195,14 @@ create_subscription(
   ),
   typename MessageMemoryStrategyT::SharedPtr msg_mem_strat = (
     MessageMemoryStrategyT::create_default()
-  )
+  ),
+  std::initializer_list<rclcpp::PublisherBase::SharedPtr> publishers = {}
 )
 {
   return rclcpp::detail::create_subscription<
     MessageT, CallbackT, AllocatorT, SubscriptionT, MessageMemoryStrategyT>(
-    node, node, topic_name, qos, std::forward<CallbackT>(callback), options, msg_mem_strat);
+    node, node, topic_name, qos, std::forward<CallbackT>(callback),
+    options, msg_mem_strat, publishers);
 }
 
 /// Create and return a subscription of the given MessageT type.
@@ -213,13 +227,14 @@ create_subscription(
   ),
   typename MessageMemoryStrategyT::SharedPtr msg_mem_strat = (
     MessageMemoryStrategyT::create_default()
-  )
+  ),
+  std::initializer_list<rclcpp::PublisherBase::SharedPtr> publishers = {}
 )
 {
   return rclcpp::detail::create_subscription<
     MessageT, CallbackT, AllocatorT, SubscriptionT, MessageMemoryStrategyT>(
     node_parameters, node_topics, topic_name, qos,
-    std::forward<CallbackT>(callback), options, msg_mem_strat);
+    std::forward<CallbackT>(callback), options, msg_mem_strat, publishers);
 }
 
 }  // namespace rclcpp

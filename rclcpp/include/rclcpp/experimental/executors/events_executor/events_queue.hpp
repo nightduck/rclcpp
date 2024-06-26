@@ -62,6 +62,21 @@ public:
   void
   enqueue(const rclcpp::experimental::executors::ExecutorEvent & event) = 0;
 
+  RCLCPP_PUBLIC
+  virtual
+  void
+  enqueue_unsafe(const rclcpp::experimental::executors::ExecutorEvent & event) = 0;
+
+  RCLCPP_PUBLIC
+  virtual
+  void
+  queue_lock() = 0;
+
+  RCLCPP_PUBLIC
+  virtual
+  void
+  queue_unlock() = 0;
+
   /**
    * @brief Extracts an event from the queue, eventually waiting until timeout
    * if none is available.

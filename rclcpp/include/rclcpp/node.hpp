@@ -225,6 +225,36 @@ public:
     SubscriptionOptionsWithAllocator<AllocatorT>(),
     typename MessageMemoryStrategyT::SharedPtr msg_mem_strat = (
       MessageMemoryStrategyT::create_default()
+    ),
+    std::initializer_list<rclcpp::PublisherBase::SharedPtr> publishers = {}
+  );
+
+  /// Create and return a Subscription.
+  /**
+   * \param[in] topic_name The topic to subscribe on.
+   * \param[in] qos QoS profile for Subcription.
+   * \param[in] callback The user-defined callback function to receive a message
+   * \param[in] options Additional options for the creation of the Subscription.
+   * \param[in] msg_mem_strat The message memory strategy to use for allocating messages.
+   * \return Shared pointer to the created subscription.
+   */
+  template<
+    typename MessageT,
+    typename CallbackT,
+    typename AllocatorT = std::allocator<void>,
+    typename SubscriptionT = rclcpp::Subscription<MessageT, AllocatorT>,
+    typename MessageMemoryStrategyT = typename SubscriptionT::MessageMemoryStrategyType
+  >
+  std::shared_ptr<SubscriptionT>
+  create_subscription(
+    const std::string & topic_name,
+    const rclcpp::QoS & qos,
+    CallbackT && callback,
+    std::initializer_list<rclcpp::PublisherBase::SharedPtr> publishers,
+    const SubscriptionOptionsWithAllocator<AllocatorT> & options =
+    SubscriptionOptionsWithAllocator<AllocatorT>(),
+    typename MessageMemoryStrategyT::SharedPtr msg_mem_strat = (
+      MessageMemoryStrategyT::create_default()
     )
   );
 
@@ -241,6 +271,7 @@ public:
     std::chrono::duration<DurationRepT, DurationT> period,
     CallbackT callback,
     rclcpp::CallbackGroup::SharedPtr group = nullptr,
+    std::initializer_list<rclcpp::PublisherBase::SharedPtr> publishers = {},
     bool autostart = true);
 
   /// Create a timer that uses the node clock to drive the callback.
@@ -254,7 +285,8 @@ public:
   create_timer(
     std::chrono::duration<DurationRepT, DurationT> period,
     CallbackT callback,
-    rclcpp::CallbackGroup::SharedPtr group = nullptr);
+    rclcpp::CallbackGroup::SharedPtr group = nullptr,
+    std::initializer_list<rclcpp::PublisherBase::SharedPtr> publishers = {});
 
   /// Create and return a Client.
   /**

@@ -54,7 +54,7 @@ using ExecutorTypes =
   rclcpp::executors::SingleThreadedExecutor,
   rclcpp::executors::MultiThreadedExecutor,
   rclcpp::executors::StaticSingleThreadedExecutor,
-  rclcpp::experimental::executors::EventsExecutor>;
+  rclcpp::experimental::executors::EventsExecutorRT>;
 
 class ExecutorTypeNames
 {
@@ -75,8 +75,8 @@ public:
       return "StaticSingleThreadedExecutor";
     }
 
-    if (std::is_same<T, rclcpp::experimental::executors::EventsExecutor>()) {
-      return "EventsExecutor";
+    if (std::is_same<T, rclcpp::experimental::executors::EventsExecutorRT>()) {
+      return "EventsExecutorRT";
     }
 
     return "";
@@ -90,7 +90,7 @@ using StandardExecutors =
   ::testing::Types<
   rclcpp::executors::SingleThreadedExecutor,
   rclcpp::executors::MultiThreadedExecutor,
-  rclcpp::experimental::executors::EventsExecutor>;
+  rclcpp::experimental::executors::EventsExecutorRT>;
 TYPED_TEST_SUITE(TestAddCallbackGroupsToExecutorStable, StandardExecutors, ExecutorTypeNames);
 
 /*

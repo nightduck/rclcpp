@@ -135,7 +135,7 @@ public:
     AnySubscriptionCallback<MessageT, AllocatorT> callback,
     const rclcpp::SubscriptionOptionsWithAllocator<AllocatorT> & options,
     typename MessageMemoryStrategyT::SharedPtr message_memory_strategy,
-    SubscriptionTopicStatisticsSharedPtr subscription_topic_statistics = nullptr)
+    SubscriptionTopicStatisticsSharedPtr subscription_topic_statistics)
   : SubscriptionBase(
       node_base,
       type_support_handle,
@@ -147,7 +147,8 @@ public:
       callback.is_serialized_message_callback() ? DeliveredMessageKind::SERIALIZED_MESSAGE : DeliveredMessageKind::ROS_MESSAGE),  // NOLINT
     any_callback_(callback),
     options_(options),
-    message_memory_strategy_(message_memory_strategy)
+    message_memory_strategy_(message_memory_strategy),
+    subscription_topic_statistics_(nullptr)
   {
     // Setup intra process publishing if requested.
     if (rclcpp::detail::resolve_use_intra_process(options_, *node_base)) {

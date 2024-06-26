@@ -26,6 +26,7 @@
 
 #include "rclcpp/clock.hpp"
 #include "rclcpp/context.hpp"
+#include "rclcpp/experimental/graph_executable.hpp"
 #include "rclcpp/function_traits.hpp"
 #include "rclcpp/macros.hpp"
 #include "rclcpp/rate.hpp"
@@ -43,7 +44,7 @@
 namespace rclcpp
 {
 
-class TimerBase
+class TimerBase : public experimental::GraphExecutable
 {
 public:
   RCLCPP_SMART_PTR_DEFINITIONS_NOT_COPYABLE(TimerBase)
@@ -178,6 +179,21 @@ public:
   RCLCPP_PUBLIC
   void
   clear_on_reset_callback();
+
+  /// Get period
+  /**
+   * \return The period of the timer
+   */
+  RCLCPP_PUBLIC
+  int64_t
+  get_period() const;
+
+  /// Get next time the timer was triggered
+  /**
+   * \return The next time the timer was triggered
+   */
+  int64_t
+  get_arrival_time() const;
 
 protected:
   std::recursive_mutex callback_mutex_;

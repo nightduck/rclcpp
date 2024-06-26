@@ -94,6 +94,32 @@ Node::create_subscription(
   const rclcpp::QoS & qos,
   CallbackT && callback,
   const SubscriptionOptionsWithAllocator<AllocatorT> & options,
+  typename MessageMemoryStrategyT::SharedPtr msg_mem_strat,
+  std::initializer_list<rclcpp::PublisherBase::SharedPtr> publishers)
+{
+  return rclcpp::create_subscription<MessageT>(
+    *this,
+    extend_name_with_sub_namespace(topic_name, this->get_sub_namespace()),
+    qos,
+    std::forward<CallbackT>(callback),
+    options,
+    msg_mem_strat,
+    publishers);
+}
+
+template<
+  typename MessageT,
+  typename CallbackT,
+  typename AllocatorT,
+  typename SubscriptionT,
+  typename MessageMemoryStrategyT>
+std::shared_ptr<SubscriptionT>
+Node::create_subscription(
+  const std::string & topic_name,
+  const rclcpp::QoS & qos,
+  CallbackT && callback,
+  std::initializer_list<rclcpp::PublisherBase::SharedPtr> publishers,
+  const SubscriptionOptionsWithAllocator<AllocatorT> & options,
   typename MessageMemoryStrategyT::SharedPtr msg_mem_strat)
 {
   return rclcpp::create_subscription<MessageT>(
@@ -102,7 +128,8 @@ Node::create_subscription(
     qos,
     std::forward<CallbackT>(callback),
     options,
-    msg_mem_strat);
+    msg_mem_strat,
+    publishers);
 }
 
 template<typename DurationRepT, typename DurationT, typename CallbackT>
@@ -111,6 +138,7 @@ Node::create_wall_timer(
   std::chrono::duration<DurationRepT, DurationT> period,
   CallbackT callback,
   rclcpp::CallbackGroup::SharedPtr group,
+  std::initializer_list<rclcpp::PublisherBase::SharedPtr> publishers,
   bool autostart)
 {
   return rclcpp::create_wall_timer(
@@ -119,6 +147,7 @@ Node::create_wall_timer(
     group,
     this->node_base_.get(),
     this->node_timers_.get(),
+    publishers,
     autostart);
 }
 
@@ -127,7 +156,8 @@ typename rclcpp::GenericTimer<CallbackT>::SharedPtr
 Node::create_timer(
   std::chrono::duration<DurationRepT, DurationT> period,
   CallbackT callback,
-  rclcpp::CallbackGroup::SharedPtr group)
+  rclcpp::CallbackGroup::SharedPtr group,
+  std::initializer_list<rclcpp::PublisherBase::SharedPtr> publishers)
 {
   return rclcpp::create_timer(
     this->get_clock(),
@@ -135,7 +165,8 @@ Node::create_timer(
     std::move(callback),
     group,
     this->node_base_.get(),
-    this->node_timers_.get());
+    this->node_timers_.get(),
+    publishers);
 }
 
 template<typename ServiceT>
