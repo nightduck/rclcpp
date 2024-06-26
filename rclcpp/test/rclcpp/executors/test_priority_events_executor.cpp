@@ -113,12 +113,15 @@ TEST_F(TestPriorityEventsExecutor, priority_subs)
       switch (event.type) {
         case rclcpp::experimental::executors::ExecutorEventType::CLIENT_EVENT:
           client = static_cast<const rcl_client_t *>(event.entity_key);
+          (void)client;
           break;
         case rclcpp::experimental::executors::ExecutorEventType::SERVICE_EVENT:
           service = static_cast<const rcl_service_t *>(event.entity_key);
+          (void)service;
           break;
         case rclcpp::experimental::executors::ExecutorEventType::TIMER_EVENT:
           timer = static_cast<const rclcpp::TimerBase *>(event.entity_key);
+          (void)timer;
           return 0UL;
           break;
         case rclcpp::experimental::executors::ExecutorEventType::SUBSCRIPTION_EVENT:
@@ -127,6 +130,7 @@ TEST_F(TestPriorityEventsExecutor, priority_subs)
           break;
         case rclcpp::experimental::executors::ExecutorEventType::WAITABLE_EVENT:
           waitable = static_cast<const rclcpp::Waitable *>(event.entity_key);
+          (void)waitable;
           break;
       }
       return 0UL;
