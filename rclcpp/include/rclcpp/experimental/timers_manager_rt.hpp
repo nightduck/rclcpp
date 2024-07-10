@@ -184,6 +184,13 @@ public:
   RCLCPP_PUBLIC
   std::chrono::nanoseconds get_head_timeout();
 
+  /**
+   * @brief Enqueues all the timers that are currently ready into the events_queue.
+   * @param events_queue 
+   */
+  RCLCPP_PUBLIC
+  void enqueue_ready_timers_into(executors::EventsQueue::SharedPtr events_queue);
+
 private:
   RCLCPP_DISABLE_COPY(TimersManagerRT)
 
@@ -528,7 +535,7 @@ private:
    * invoke the on_ready_callback_ if it's callable.
    * This function is not thread safe, acquire the timers_mutex_ before calling it.
   */
- void enqueue_ready_timers_unsafe();
+  void enqueue_ready_timers_unsafe();
 
   /**
    * @brief Executes all the timers currently ready when the function is invoked

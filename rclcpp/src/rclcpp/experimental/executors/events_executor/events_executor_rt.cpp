@@ -115,10 +115,10 @@ EventsExecutorRT::spin()
   }
   RCPPUTILS_SCOPE_EXIT(this->spinning.store(false); );
 
-  timers_manager_->start();
-  RCPPUTILS_SCOPE_EXIT(timers_manager_->stop(); );
-
   while (rclcpp::ok(context_) && spinning.load()) {
+    // Check if any timers are ready and enqueue them here
+    timers_manager_->enqueue_ready_timers_into(events_queue_);
+
     // Wait until we get an event
     ExecutorEvent event;
     bool has_event = events_queue_->dequeue(event);
