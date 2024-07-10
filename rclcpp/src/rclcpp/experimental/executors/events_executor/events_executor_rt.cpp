@@ -118,10 +118,11 @@ EventsExecutorRT::spin()
   while (rclcpp::ok(context_) && spinning.load()) {
     // Check if any timers are ready and enqueue them here
     timers_manager_->enqueue_ready_timers_into(events_queue_);
+    auto time_to_next_release = timers_manager_->get_next_release_time();
 
     // Wait until we get an event
     ExecutorEvent event;
-    bool has_event = events_queue_->dequeue(event);
+    bool has_event = events_queue_->dequeue(event, time_to_next_release);
     if (has_event) {
       this->execute_event(event);
     }

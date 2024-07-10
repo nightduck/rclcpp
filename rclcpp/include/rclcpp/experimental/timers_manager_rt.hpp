@@ -191,6 +191,13 @@ public:
   RCLCPP_PUBLIC
   void enqueue_ready_timers_into(executors::EventsQueue::SharedPtr events_queue);
 
+  /**
+   * @brief Get the amount of time before the next timer triggers.
+   * @return std::chrono::nanoseconds until next timer is release
+   */
+  RCLCPP_PUBLIC
+  std::chrono::nanoseconds get_next_release_time();
+
 private:
   RCLCPP_DISABLE_COPY(TimersManagerRT)
 

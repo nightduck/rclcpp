@@ -161,6 +161,20 @@ void TimersManagerRT::enqueue_ready_timers_into(executors::EventsQueue::SharedPt
   weak_timers_heap_.store(locked_heap);
 }
 
+std::chrono::nanoseconds TimersManagerRT::get_next_release_time() {
+  // Lock mutex
+  std::unique_lock<std::mutex> lock(timers_mutex_);
+
+  // Nothing to do if we don't have any timer
+  if (weak_timers_heap_.empty()) {
+    return std::chrono::nanoseconds::max();
+  }
+
+  TimerPtr head_timer = weak_timers_heap_.front().lock();
+
+  return head_timer->time_until_trigger();
+}
+
 size_t TimersManagerRT::get_number_ready_timers()
 {
   // Do not allow to interfere with the thread running
