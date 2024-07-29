@@ -28,6 +28,8 @@
 
 #include "rclcpp/context.hpp"
 #include "rclcpp/timer.hpp"
+#include "rclcpp/experimental/executors/events_executor/priority_events_queue.hpp"
+#include "rclcpp/experimental/executors/events_executor/events_executor_event_types.hpp"
 
 namespace rclcpp
 {
@@ -179,6 +181,20 @@ public:
    */
   RCLCPP_PUBLIC
   std::chrono::nanoseconds get_head_timeout();
+
+  /**
+   * @brief Enqueues all the timers that are currently ready into the events_queue.
+   * @param events_queue 
+   */
+  RCLCPP_PUBLIC
+  void enqueue_ready_timers_into(executors::EventsQueue::SharedPtr events_queue);
+
+  /**
+   * @brief Get the amount of time before the next timer triggers.
+   * @return std::chrono::nanoseconds until next timer is release
+   */
+  RCLCPP_PUBLIC
+  std::chrono::nanoseconds get_next_release_time();
 
 private:
   RCLCPP_DISABLE_COPY(TimersManager)

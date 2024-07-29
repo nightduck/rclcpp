@@ -24,6 +24,8 @@
 #include "rcpputils/scope_exit.hpp"
 
 using rclcpp::experimental::TimersManager;
+using rclcpp::experimental::executors::ExecutorEvent;
+using rclcpp::experimental::executors::ExecutorEventType;
 
 TimersManager::TimersManager(
   std::shared_ptr<rclcpp::Context> context,
@@ -110,6 +112,64 @@ std::chrono::nanoseconds TimersManager::get_head_timeout()
 
   std::unique_lock<std::mutex> lock(timers_mutex_);
   return this->get_head_timeout_unsafe();
+}
+
+void TimersManager::enqueue_ready_timers_into(executors::EventsQueue::SharedPtr events_queue)
+{
+  // Lock mutex
+  std::unique_lock<std::mutex> lock(timers_mutex_);
+  
+  // We start by locking the timers
+  TimersHeap locked_heap = weak_timers_heap_.validate_and_lock();
+
+  // Nothing to do if we don't have any timer
+  if (locked_heap.empty()) {
+    return;
+  }
+
+  // Keep executing timers until they are ready and they were already ready when we started.
+  // The two checks prevent this function from blocking indefinitely if the
+  // time required for executing the timers is longer than their period.
+
+  events_queue->queue_lock();
+  TimerPtr head_timer = locked_heap.front();
+  const size_t number_ready_timers = locked_heap.get_number_ready_timers();
+  size_t executed_timers = 0;
+  while (executed_timers < number_ready_timers && head_timer->is_ready()) {
+    head_timer->call();
+
+    ExecutorEvent event = {head_timer.get(), -1, ExecutorEventType::TIMER_EVENT, 1};
+    events_queue->enqueue_unsafe(event);
+
+    executed_timers++;
+    // Executing a timer will result in updating its time_until_trigger, so re-heapify
+    locked_heap.heapify_root();
+    // Get new head timer
+    head_timer = locked_heap.front();
+
+    // NOTE: We shouldn't have to re-heapify locked_heap, because it is assumed we're collecting all
+    // released timers at a snapshot in time, and no timers will get re-released while this function
+    // is executing. locked_heap will get resorted when this function is called again
+  }
+  events_queue->queue_unlock();
+
+  // After having performed work on the locked heap we reflect the changes to weak one.
+  // Timers will be already sorted the next time we need them if none went out of scope.
+  weak_timers_heap_.store(locked_heap);
+}
+
+std::chrono::nanoseconds TimersManager::get_next_release_time() {
+  // Lock mutex
+  std::unique_lock<std::mutex> lock(timers_mutex_);
+
+  // Nothing to do if we don't have any timer
+  if (weak_timers_heap_.empty()) {
+    return std::chrono::nanoseconds::max();
+  }
+
+  TimerPtr head_timer = weak_timers_heap_.front().lock();
+
+  return head_timer->time_until_trigger();
 }
 
 size_t TimersManager::get_number_ready_timers()

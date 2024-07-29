@@ -26,7 +26,7 @@
 #include "rclcpp/experimental/executors/events_executor/events_executor_event_types.hpp"
 #include "rclcpp/experimental/executors/events_executor/events_queue.hpp"
 #include "rclcpp/experimental/executors/events_executor/simple_events_queue.hpp"
-#include "rclcpp/experimental/timers_manager_rt.hpp"
+#include "rclcpp/experimental/timers_manager.hpp"
 #include "rclcpp/node.hpp"
 
 namespace rclcpp
@@ -284,7 +284,7 @@ private:
   std::atomic<bool> notify_waitable_event_pushed_ {false};
 
   /// Timers manager used to track and/or execute associated timers
-  std::shared_ptr<rclcpp::experimental::TimersManagerRT> timers_manager_;
+  std::shared_ptr<rclcpp::experimental::TimersManager> timers_manager_;
 };
 
 }  // namespace executors

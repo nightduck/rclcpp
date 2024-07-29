@@ -49,10 +49,7 @@ EventsExecutorRT::EventsExecutorRT(
   //     };
   // }
   timers_manager_ =
-    std::make_shared<rclcpp::experimental::TimersManagerRT>(
-      context_,
-      separate_thread ? std::move(timers_queue) : events_queue_,
-      separate_thread);
+    std::make_shared<rclcpp::experimental::TimersManager>(context_);
 
   this->current_entities_collection_ =
     std::make_shared<rclcpp::executors::ExecutorEntitiesCollection>();
