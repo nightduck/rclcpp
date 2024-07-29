@@ -404,11 +404,11 @@ endif()
 #   target_link_libraries(test_timers_manager ${PROJECT_NAME})
 # endif()
 
-ament_add_gtest(test_timers_manager_rt test_timers_manager_rt.cpp
-  APPEND_LIBRARY_DIRS "${append_library_dirs}")
-if(TARGET test_timers_manager_rt)
-  target_link_libraries(test_timers_manager_rt ${PROJECT_NAME})
-endif()
+# ament_add_gtest(test_timers_manager_rt test_timers_manager_rt.cpp
+#   APPEND_LIBRARY_DIRS "${append_library_dirs}")
+# if(TARGET test_timers_manager_rt)
+#   target_link_libraries(test_timers_manager_rt ${PROJECT_NAME})
+# endif()
 
 ament_add_gtest(test_time_source test_time_source.cpp
   APPEND_LIBRARY_DIRS "${append_library_dirs}")

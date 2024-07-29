@@ -112,6 +112,7 @@ EventsExecutorRT::spin()
   }
   RCPPUTILS_SCOPE_EXIT(this->spinning.store(false); );
 
+  // TODO: Launch pool of threads, each with a FIFO queue of events
   while (rclcpp::ok(context_) && spinning.load()) {
     // Check if any timers are ready and enqueue them here
     timers_manager_->enqueue_ready_timers_into(events_queue_);
