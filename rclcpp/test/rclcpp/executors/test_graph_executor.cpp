@@ -57,7 +57,7 @@ TEST_F(TestGraphExecutor, run_pub_sub)
 
   auto publisher = node->create_publisher<test_msgs::msg::Empty>("topic", rclcpp::SensorDataQoS());
 
-  GraphExecutor executor;
+  GraphExecutor executor(std::make_unique<rclcpp::experimental::executors::RMEventsQueue>());
   executor.add_node(node);
 
   bool spin_exited = false;
@@ -101,7 +101,7 @@ TEST_F(TestGraphExecutor, add_unrelated_executables)
   // Create timer publishing to 3 subscriptions
   auto node1 = std::make_shared<rclcpp::Node>("node1");
   auto node2 = std::make_shared<rclcpp::Node>("node2");
-  GraphExecutor executor;
+  GraphExecutor executor(std::make_unique<rclcpp::experimental::executors::RMEventsQueue>());
   EXPECT_EQ(executor.get_graph_nodes().size(), 0u);
 
   // Create 1 subscription, test it gets added to graph_nodes_ correctly
@@ -175,7 +175,7 @@ TEST_F(TestGraphExecutor, add_parent_executables)
     GTEST_SKIP();
   }
 
-  GraphExecutor executor;
+  GraphExecutor executor(std::make_unique<rclcpp::experimental::executors::RMEventsQueue>());
   EXPECT_EQ(executor.get_graph_nodes().size(), 0u);
 
   // Create 2 subscriptions, one that publishes to the other
@@ -380,7 +380,7 @@ TEST_F(TestGraphExecutor, add_child_executables)
     GTEST_SKIP();
   }
 
-  GraphExecutor executor;
+  GraphExecutor executor(std::make_unique<rclcpp::experimental::executors::RMEventsQueue>());
   EXPECT_EQ(executor.get_graph_nodes().size(), 0u);
 
   // Create timer, test it gets added to graph_nodes_ correctly
