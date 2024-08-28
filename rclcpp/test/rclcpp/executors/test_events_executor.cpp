@@ -27,9 +27,6 @@ using namespace std::chrono_literals;
 
 using rclcpp::experimental::executors::EventsExecutor;
 
-using CallbackT = std::function<void ()>;
-using TimerT = rclcpp::WallTimer<CallbackT>;
-
 class TestEventsExecutor : public ::testing::Test
 {
 public:
@@ -492,72 +489,4 @@ TEST_F(TestEventsExecutor, test_default_incompatible_qos_callbacks)
     sub_log_msg);
 
   rcutils_logging_set_output_handler(original_output_handler);
-}
-
-// Validate that cancelling one timer yields no change in behavior for other
-// timers.
-TEST_F(TestEventsExecutor, check_one_timer_cancel_doesnt_affect_other_timers)
-{
-  auto node = std::make_shared<rclcpp::Node>("node");
-  std::atomic<size_t> t1_runs = 0;
-  const size_t cancel_iter = 5;
-  std::shared_ptr<TimerT> t1;
-  // After a while cancel t1. Don't remove it though.
-  // Simulates typical usage in a Node where a timer is cancelled but not removed,
-  // since typical users aren't going to mess around with the timer manager.
-  auto t1 = node->create_timer(
-    1ms,
-    [ =, &t1_runs, &t1]() {
-      t1_runs++;
-      if (t1_runs == cancel_iter) {
-        t1->cancel();
-      }
-    });
-
-  std::atomic<size_t> t2_runs = 0;
-  auto t2 = node->create_timer(
-    1ms,
-    [&t2_runs]() {
-      t2_runs++;
-    });
-
-  rclcpp::experimental::executors::EventsExecutor executor;
-  executor.add_node(node);
-
-  // Wait for t1 to be canceled
-  auto loop_start_time = std::chrono::high_resolution_clock::now();
-  while (!t1->is_canceled()) {
-    auto now = std::chrono::high_resolution_clock::now();
-    if (now - loop_start_time >= std::chrono::seconds(30)) {
-      FAIL() << "timeout waiting for t1 to be canceled";
-      break;
-    }
-    std::this_thread::sleep_for(3ms);
-  }
-
-  EXPECT_TRUE(t1->is_canceled());
-  EXPECT_FALSE(t2->is_canceled());
-  EXPECT_EQ(t1_runs, cancel_iter);
-
-  // Verify that t2 is still being invoked
-  const size_t start_t2_runs = t2_runs;
-  const size_t num_t2_extra_runs = 6;
-  loop_start_time = std::chrono::high_resolution_clock::now();
-  while (t2_runs < start_t2_runs + num_t2_extra_runs) {
-    auto now = std::chrono::high_resolution_clock::now();
-    if (now - loop_start_time >= std::chrono::seconds(30)) {
-      FAIL() << "timeout waiting for t2 to do some runs";
-      break;
-    }
-    std::this_thread::sleep_for(3ms);
-  }
-
-  EXPECT_TRUE(t1->is_canceled());
-  EXPECT_FALSE(t2->is_canceled());
-  // t1 hasn't run since before
-  EXPECT_EQ(t1_runs, cancel_iter);
-  // t2 has run the expected additional number of times
-  EXPECT_GE(t2_runs, start_t2_runs + num_t2_extra_runs);
-  // the t2 runs are strictly more than the t1 runs
-  EXPECT_GT(t2_runs, t1_runs);
 }
