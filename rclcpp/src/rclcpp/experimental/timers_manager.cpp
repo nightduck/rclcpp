@@ -24,6 +24,9 @@
 #include "rcpputils/scope_exit.hpp"
 
 using rclcpp::experimental::TimersManager;
+using rclcpp::experimental::executors::ExecutorEvent;
+using rclcpp::experimental::executors::ExecutorEventType;
+using rclcpp::experimental::executors::EventsQueue;
 
 TimersManager::TimersManager(
   std::shared_ptr<rclcpp::Context> context,
@@ -37,9 +40,6 @@ TimersManager::~TimersManager()
 {
   // Remove all timers
   this->clear();
-
-  // Make sure timers thread is stopped before destroying this object
-  this->stop();
 }
 
 void TimersManager::add_timer(rclcpp::TimerBase::SharedPtr timer)
@@ -71,35 +71,6 @@ void TimersManager::add_timer(rclcpp::TimerBase::SharedPtr timer)
   }
 }
 
-void TimersManager::start()
-{
-  // Make sure that the thread is not already running
-  if (running_.exchange(true)) {
-    throw std::runtime_error("TimersManager::start() can't start timers thread as already running");
-  }
-
-  timers_thread_ = std::thread(&TimersManager::run_timers, this);
-}
-
-void TimersManager::stop()
-{
-  // Lock stop() function to prevent race condition in destructor
-  std::unique_lock<std::mutex> lock(stop_mutex_);
-  running_ = false;
-
-  // Notify the timers manager thread to wake up
-  {
-    std::unique_lock<std::mutex> lock(timers_mutex_);
-    timers_updated_ = true;
-  }
-  timers_cv_.notify_one();
-
-  // Join timers thread if it's running
-  if (timers_thread_.joinable()) {
-    timers_thread_.join();
-  }
-}
-
 std::optional<std::chrono::nanoseconds> TimersManager::get_head_timeout()
 {
   // Do not allow to interfere with the thread running
@@ -110,6 +81,48 @@ std::optional<std::chrono::nanoseconds> TimersManager::get_head_timeout()
 
   std::unique_lock<std::mutex> lock(timers_mutex_);
   return this->get_head_timeout_unsafe();
+}
+
+void TimersManager::enqueue_ready_timers_into(EventsQueue::SharedPtr events_queue)
+{
+  // Lock mutex
+  std::unique_lock<std::mutex> lock(timers_mutex_);
+  
+  // We start by locking the timers
+  TimersHeap locked_heap = weak_timers_heap_.validate_and_lock();
+
+  // Nothing to do if we don't have any timer
+  if (locked_heap.empty()) {
+    return;
+  }
+
+  // Keep executing timers until they are ready and they were already ready when we started.
+  // The two checks prevent this function from blocking indefinitely if the
+  // time required for executing the timers is longer than their period.
+
+  TimerPtr head_timer = locked_heap.front();
+  const size_t number_ready_timers = locked_heap.get_number_ready_timers();
+  size_t executed_timers = 0;
+  while (executed_timers < number_ready_timers && head_timer->is_ready()) {
+    head_timer->call();
+
+    ExecutorEvent event = {head_timer.get(), -1, ExecutorEventType::TIMER_EVENT, 1};
+    events_queue->enqueue(event);
+
+    executed_timers++;
+    // Executing a timer will result in updating its time_until_trigger, so re-heapify
+    locked_heap.heapify_root();
+    // Get new head timer
+    head_timer = locked_heap.front();
+
+    // NOTE: We shouldn't have to re-heapify locked_heap, because it is assumed we're collecting all
+    // released timers at a snapshot in time, and no timers will get re-released while this function
+    // is executing. locked_heap will get resorted when this function is called again
+  }
+
+  // After having performed work on the locked heap we reflect the changes to weak one.
+  // Timers will be already sorted the next time we need them if none went out of scope.
+  weak_timers_heap_.store(locked_heap);
 }
 
 size_t TimersManager::get_number_ready_timers()
@@ -243,54 +256,6 @@ void TimersManager::execute_ready_timers_unsafe()
   // After having performed work on the locked heap we reflect the changes to weak one.
   // Timers will be already sorted the next time we need them if none went out of scope.
   weak_timers_heap_.store(locked_heap);
-}
-
-void TimersManager::run_timers()
-{
-  // Make sure the running flag is set to false when we exit from this function
-  // to allow restarting the timers thread.
-  RCPPUTILS_SCOPE_EXIT(this->running_.store(false); );
-
-  while (rclcpp::ok(context_) && running_) {
-    // Lock mutex
-    std::unique_lock<std::mutex> lock(timers_mutex_);
-
-    std::optional<std::chrono::nanoseconds> time_to_sleep = get_head_timeout_unsafe();
-
-    // If head timer was cancelled, try to reheap and get a new head.
-    // This avoids an edge condition where head timer is cancelled, but other
-    // valid timers remain in the heap.
-    if (!time_to_sleep.has_value()) {
-      // Re-heap to (possibly) move cancelled timer from head of heap. If
-      // entire heap is cancelled, this will still result in a nullopt.
-      TimersHeap locked_heap = weak_timers_heap_.validate_and_lock();
-      locked_heap.heapify();
-      weak_timers_heap_.store(locked_heap);
-      time_to_sleep = get_head_timeout_unsafe();
-    }
-
-    // If no timers, or all timers cancelled, wait for an update.
-    if (!time_to_sleep.has_value() || (time_to_sleep.value() == std::chrono::nanoseconds::max()) ) {
-      // Wait until notification that timers have been updated
-      timers_cv_.wait(lock, [this]() {return timers_updated_;});
-
-      // Re-heap in case ordering changed due to a cancelled timer
-      // re-activating.
-      TimersHeap locked_heap = weak_timers_heap_.validate_and_lock();
-      locked_heap.heapify();
-      weak_timers_heap_.store(locked_heap);
-    } else if (time_to_sleep.value() != std::chrono::nanoseconds::zero()) {
-      // If time_to_sleep is zero, we immediately execute. Otherwise, wait
-      // until timeout or notification that timers have been updated
-      timers_cv_.wait_for(lock, time_to_sleep.value(), [this]() {return timers_updated_;});
-    }
-
-    // Reset timers updated flag
-    timers_updated_ = false;
-
-    // Execute timers
-    this->execute_ready_timers_unsafe();
-  }
 }
 
 void TimersManager::clear()

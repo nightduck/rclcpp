@@ -28,7 +28,10 @@
 #include <vector>
 #include "rclcpp/context.hpp"
 #include "rclcpp/timer.hpp"
+#include "rclcpp/experimental/executors/events_executor/events_queue.hpp"
+#include "rclcpp/experimental/executors/events_executor/events_executor_event_types.hpp"
 
+//TODO (nightduck): Remove all references to the timer thread
 namespace rclcpp
 {
 namespace experimental
@@ -123,20 +126,6 @@ public:
   void clear();
 
   /**
-   * @brief Starts a thread that takes care of executing the timers stored in this object.
-   * Function will throw an error if the timers thread was already running.
-   */
-  RCLCPP_PUBLIC
-  void start();
-
-  /**
-   * @brief Stops the timers thread.
-   * Will do nothing if the timer thread was not running.
-   */
-  RCLCPP_PUBLIC
-  void stop();
-
-  /**
    * @brief Get the number of timers that are currently ready.
    * This function is thread safe.
    *
@@ -182,6 +171,13 @@ public:
    */
   RCLCPP_PUBLIC
   std::optional<std::chrono::nanoseconds> get_head_timeout();
+
+  /**
+   * @brief Enqueues all the timers that are currently ready into the events_queue.
+   * @param events_queue 
+   */
+  RCLCPP_PUBLIC
+  void enqueue_ready_timers_into(executors::EventsQueue::SharedPtr events_queue);
 
 private:
   RCLCPP_DISABLE_COPY(TimersManager)
@@ -504,12 +500,6 @@ private:
 
     std::vector<TimerPtr> owned_heap_;
   };
-
-  /**
-   * @brief Implements a loop that keeps executing ready timers.
-   * This function is executed in the timers thread.
-   */
-  void run_timers();
 
   /**
    * @brief Get the amount of time before the next timer triggers.
