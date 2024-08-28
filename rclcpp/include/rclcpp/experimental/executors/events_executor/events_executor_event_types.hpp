@@ -40,6 +40,7 @@ struct ExecutorEvent
   int waitable_data;
   ExecutorEventType type;
   size_t num_events;
+  uint64_t thread_mask;
 };
 
 }  // namespace executors

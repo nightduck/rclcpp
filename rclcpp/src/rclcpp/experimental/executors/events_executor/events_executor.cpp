@@ -36,6 +36,7 @@ EventsExecutor::EventsExecutor(
   }
   events_queue_ = std::move(events_queue);
 
+  // TODO: Investigate whether we need timer_on_ready_cb anymore. Remove it if not needed.
   // Create timers manager
   // The timers manager can be used either to only track timers (in this case an expired
   // timer will generate an executor event and then it will be executed by the executor thread)
@@ -116,6 +117,9 @@ EventsExecutor::spin()
     throw std::runtime_error("spin() called while already spinning");
   }
   RCPPUTILS_SCOPE_EXIT(this->spinning.store(false); );
+
+  // TODO: Create a pool of worker threads and associated simple queues
+  // TODO: Expand ExecutorEvent to include a thread mask of acceptable worker threads
 
   while (rclcpp::ok(context_) && spinning.load()) {
     // Check if any timers are ready and enqueue them here
@@ -398,9 +402,13 @@ std::function<void(size_t)>
 EventsExecutor::create_entity_callback(
   void * entity_key, ExecutorEventType event_type)
 {
+  // TODO: Create some way where the entity can express a preference for which worker thread
+  // should handle the event. This is extensible, and default to 0xFFFF for now, but subclassed
+  // executors can use graph information to implement this. Consider replacing this with a function
+  // that doesn't obfuscate the entity to a raw pointer, or as least pass in the RT data
   std::function<void(size_t)>
   callback = [this, entity_key, event_type](size_t num_events) {
-      ExecutorEvent event = {entity_key, nullptr, -1, event_type, num_events};
+      ExecutorEvent event = {entity_key, -1, event_type, num_events, INT64_MAX};
       this->events_queue_->enqueue(event);
     };
   return callback;
