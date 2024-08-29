@@ -12,23 +12,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef RCLCPP__EXPERIMENTAL__EXECUTORS__EVENTS_EXECUTOR__EVENTS_EXECUTOR_HPP_
-#define RCLCPP__EXPERIMENTAL__EXECUTORS__EVENTS_EXECUTOR__EVENTS_EXECUTOR_HPP_
+#ifndef RCLCPP__EXPERIMENTAL__EXECUTORS__MULTITHREADED_EVENTS_EXECUTOR__EVENTS_EXECUTOR_HPP_
+#define RCLCPP__EXPERIMENTAL__EXECUTORS__MULTITHREADED_EVENTS_EXECUTOR__EVENTS_EXECUTOR_HPP_
 
 #include <atomic>
 #include <chrono>
 #include <memory>
 #include <vector>
 
-#include "rclcpp/executor.hpp"
 #include "rclcpp/experimental/executors/events_executor/events_executor.hpp"
-#include "rclcpp/executors/executor_entities_collection.hpp"
-#include "rclcpp/executors/executor_entities_collector.hpp"
-#include "rclcpp/experimental/executors/events_executor/events_executor_event_types.hpp"
-#include "rclcpp/experimental/executors/events_executor/events_queue.hpp"
-#include "rclcpp/experimental/executors/events_executor/simple_events_queue.hpp"
-#include "rclcpp/experimental/timers_manager.hpp"
-#include "rclcpp/node.hpp"
 
 namespace rclcpp
 {
@@ -36,6 +28,7 @@ namespace experimental
 {
 namespace executors
 {
+
 
 /// Events executor implementation
 /**
@@ -65,6 +58,64 @@ class MultithreadedEventsExecutor : public rclcpp::experimental::executors::Even
 public:
   RCLCPP_SMART_PTR_DEFINITIONS(MultithreadedEventsExecutor)
 
+  class WorkerThread
+  {
+  public:
+    WorkerThread(
+      rclcpp::experimental::executors::EventsQueue::UniquePtr events_queue,
+      std::function<void(rclcpp::experimental::executors::ExecutorEvent)> execution_function)
+      : events_queue_(std::move(events_queue)), has_work_(false), running_(false),
+        execution_function_(execution_function) {
+
+      }
+
+    void start() {
+      running_ = true;
+      thread_ = std::thread(&WorkerThread::run, this);
+    }
+
+    void stop() {
+      running_ = false;
+      thread_.join();
+    }
+
+    void run() {
+      while (running_) {
+        rclcpp::experimental::executors::ExecutorEvent event;
+        bool has_event = events_queue_->dequeue(event);
+        if (has_event) {
+          has_work_ = true;
+          execution_function_(event);
+        } else {
+          has_work_ = false;
+        }
+      }
+    }
+
+    void add_work(rclcpp::experimental::executors::ExecutorEvent event) {
+      events_queue_->enqueue(event);
+    }
+
+    bool steal_work(rclcpp::experimental::executors::ExecutorEvent & event) {
+      return events_queue_->dequeue(event);
+    }
+
+    bool has_work() {
+      return has_work_;
+    }
+
+    int get_work_size() {
+      return events_queue_->size();
+    }
+
+  protected:
+    bool has_work_;
+    bool running_;    // TODO: Change to atomic variable
+    std::thread thread_;
+    std::function<void(rclcpp::experimental::executors::ExecutorEvent)> execution_function_;
+    rclcpp::experimental::executors::EventsQueue::UniquePtr events_queue_;
+  };
+
   /// Default constructor. See the default constructor for Executor.
   /**
    * \param[in] events_queue The queue used to store events.
@@ -92,48 +143,7 @@ public:
   void
   spin() override;
 
-  /// Events executor implementation of spin some
-  /**
-   * This non-blocking function will execute the timers and events
-   * that were ready when this API was called, until timeout or no
-   * more work available. New ready-timers/events arrived while
-   * executing work, won't be taken into account here.
-   *
-   * Example:
-   *   while(condition) {
-   *     spin_some();
-   *     sleep(); // User should have some sync work or
-   *              // sleep to avoid a 100% CPU usage
-   *   }
-   */
-  RCLCPP_PUBLIC
-  void
-  spin_some(std::chrono::nanoseconds max_duration = std::chrono::nanoseconds(0)) override;
-
-  /// Events executor implementation of spin all
-  /**
-   * This non-blocking function will execute timers and events
-   * until timeout or no more work available. If new ready-timers/events
-   * arrive while executing work available, they will be executed
-   * as long as the timeout hasn't expired.
-   *
-   * Example:
-   *   while(condition) {
-   *     spin_all();
-   *     sleep(); // User should have some sync work or
-   *              // sleep to avoid a 100% CPU usage
-   *   }
-   */
-  RCLCPP_PUBLIC
-  void
-  spin_all(std::chrono::nanoseconds max_duration) override;
-
 protected:
-  /// Internal implementation of spin_once
-  RCLCPP_PUBLIC
-  void
-  spin_once_impl(std::chrono::nanoseconds timeout) override;
-
   /// Internal implementation of spin_some
   RCLCPP_PUBLIC
   void
@@ -141,72 +151,12 @@ protected:
 
   RCLCPP_DISABLE_COPY(MultithreadedEventsExecutor)
 
-  /// Execute a provided executor event if its associated entities are available
-  void
-  execute_event(const ExecutorEvent & event);
-
-  /// Collect entities from callback groups and refresh the current collection with them
-  void
-  refresh_current_collection_from_callback_groups();
-
-  /// Refresh the current collection using the provided new_collection
-  void
-  refresh_current_collection(const rclcpp::executors::ExecutorEntitiesCollection & new_collection);
-
-  /// Create a listener callback function for the provided entity
-  std::function<void(size_t)>
-  create_entity_callback(void * entity_key, ExecutorEventType type);
-
-  /// Create a listener callback function for the provided waitable entity
-  std::function<void(size_t, int)>
-  create_waitable_callback(const rclcpp::Waitable * waitable_id);
-
-  /// Utility to add the notify waitable to an entities collection
-  void
-  add_notify_waitable_to_collection(
-    rclcpp::executors::ExecutorEntitiesCollection::WaitableCollection & collection);
-
-  /// Searches for the provided entity_id in the collection and returns the entity if valid
-  template<typename CollectionType>
-  typename CollectionType::EntitySharedPtr
-  retrieve_entity(typename CollectionType::Key entity_id, CollectionType & collection)
-  {
-    // Check if the entity_id is in the collection
-    auto it = collection.find(entity_id);
-    if (it == collection.end()) {
-      return nullptr;
-    }
-
-    // Check if the entity associated with the entity_id is valid
-    // and remove it from the collection if it isn't
-    auto entity = it->second.entity.lock();
-    if (!entity) {
-      collection.erase(it);
-    }
-
-    // Return the retrieved entity (this can be a nullptr if the entity was not valid)
-    return entity;
-  }
-
-  /// Queue where entities can push events
-  rclcpp::experimental::executors::EventsQueue::SharedPtr events_queue_;
-
-  std::shared_ptr<rclcpp::executors::ExecutorEntitiesCollector> entities_collector_;
-  std::shared_ptr<rclcpp::executors::ExecutorNotifyWaitable> notify_waitable_;
-
-  /// Mutex to protect the current_entities_collection_
-  std::recursive_mutex collection_mutex_;
-  std::shared_ptr<rclcpp::executors::ExecutorEntitiesCollection> current_entities_collection_;
-
-  /// Flag used to reduce the number of unnecessary waitable events
-  std::atomic<bool> notify_waitable_event_pushed_ {false};
-
-  /// Timers manager used to track and/or execute associated timers
-  std::shared_ptr<rclcpp::experimental::TimersManager> timers_manager_;
+  /// Level of parallelism
+  int number_of_threads_;
 };
 
 }  // namespace executors
 }  // namespace experimental
 }  // namespace rclcpp
 
-#endif  // RCLCPP__EXPERIMENTAL__EXECUTORS__EVENTS_EXECUTOR__EVENTS_EXECUTOR_HPP_
+#endif  // RCLCPP__EXPERIMENTAL__EXECUTORS__MULTITHREADED_EVENTS_EXECUTOR__EVENTS_EXECUTOR_HPP_

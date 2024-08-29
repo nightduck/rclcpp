@@ -191,7 +191,7 @@ public:
    * @param events_queue 
    */
   RCLCPP_PUBLIC
-  void enqueue_ready_timers_into(executors::EventsQueue::SharedPtr events_queue);
+  int enqueue_ready_timers_into(executors::EventsQueue::SharedPtr events_queue);
 
 private:
   RCLCPP_DISABLE_COPY(TimersManager)

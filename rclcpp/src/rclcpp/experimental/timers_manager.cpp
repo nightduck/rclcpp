@@ -115,7 +115,7 @@ std::optional<std::chrono::nanoseconds> TimersManager::get_head_timeout()
   return this->get_head_timeout_unsafe();
 }
 
-void TimersManager::enqueue_ready_timers_into(EventsQueue::SharedPtr events_queue)
+int TimersManager::enqueue_ready_timers_into(EventsQueue::SharedPtr events_queue)
 {
   // Lock mutex
   std::unique_lock<std::mutex> lock(timers_mutex_);
@@ -125,7 +125,7 @@ void TimersManager::enqueue_ready_timers_into(EventsQueue::SharedPtr events_queu
 
   // Nothing to do if we don't have any timer
   if (locked_heap.empty()) {
-    return;
+    return 0;
   }
 
   // Keep executing timers until they are ready and they were already ready when we started.
@@ -155,6 +155,8 @@ void TimersManager::enqueue_ready_timers_into(EventsQueue::SharedPtr events_queu
   // After having performed work on the locked heap we reflect the changes to weak one.
   // Timers will be already sorted the next time we need them if none went out of scope.
   weak_timers_heap_.store(locked_heap);
+
+  return executed_timers;
 }
 
 size_t TimersManager::get_number_ready_timers()

@@ -141,7 +141,6 @@ protected:
   void
   handle_updated_entities(bool notify) override;
 
-private:
   RCLCPP_DISABLE_COPY(EventsExecutor)
 
   /// Execute a provided executor event if its associated entities are available
