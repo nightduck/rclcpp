@@ -138,7 +138,7 @@ void TimersManager::enqueue_ready_timers_into(EventsQueue::SharedPtr events_queu
   while (executed_timers < number_ready_timers && head_timer->is_ready()) {
     head_timer->call();
 
-    ExecutorEvent event = {head_timer.get(), -1, ExecutorEventType::TIMER_EVENT, 1};
+    ExecutorEvent event = {head_timer.get(), nullptr, -1, ExecutorEventType::TIMER_EVENT, 1};
     events_queue->enqueue(event);
 
     executed_timers++;

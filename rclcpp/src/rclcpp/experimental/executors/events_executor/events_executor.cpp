@@ -26,7 +26,6 @@ using rclcpp::experimental::executors::EventsExecutor;
 
 EventsExecutor::EventsExecutor(
   rclcpp::experimental::executors::EventsQueue::UniquePtr events_queue,
-  bool execute_timers_separate_thread,
   const rclcpp::ExecutorOptions & options)
 : rclcpp::Executor(options)
 {
@@ -36,22 +35,10 @@ EventsExecutor::EventsExecutor(
   }
   events_queue_ = std::move(events_queue);
 
-  // TODO: Investigate whether we need timer_on_ready_cb anymore. Remove it if not needed.
   // Create timers manager
-  // The timers manager can be used either to only track timers (in this case an expired
-  // timer will generate an executor event and then it will be executed by the executor thread)
-  // or it can also take care of executing expired timers in its dedicated thread.
-  std::function<void(const rclcpp::TimerBase *,
-    const std::shared_ptr<void> &)> timer_on_ready_cb = nullptr;
-  if (!execute_timers_separate_thread) {
-    timer_on_ready_cb =
-      [this](const rclcpp::TimerBase * timer_id, const std::shared_ptr<void> & data) {
-        ExecutorEvent event = {timer_id, data, -1, ExecutorEventType::TIMER_EVENT, 1};
-        this->events_queue_->enqueue(event);
-      };
-  }
+  // The timers manager is used to track timers and enqueue them when they are ready.
   timers_manager_ =
-    std::make_shared<rclcpp::experimental::TimersManager>(context_, timer_on_ready_cb);
+    std::make_shared<rclcpp::experimental::TimersManager>(context_);
 
   entities_need_rebuild_ = false;
 
@@ -408,7 +395,7 @@ EventsExecutor::create_entity_callback(
   // that doesn't obfuscate the entity to a raw pointer, or as least pass in the RT data
   std::function<void(size_t)>
   callback = [this, entity_key, event_type](size_t num_events) {
-      ExecutorEvent event = {entity_key, -1, event_type, num_events, INT64_MAX};
+      ExecutorEvent event = {entity_key, nullptr, -1, event_type, num_events};
       this->events_queue_->enqueue(event);
     };
   return callback;
