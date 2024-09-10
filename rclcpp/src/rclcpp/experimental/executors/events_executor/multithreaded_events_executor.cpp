@@ -30,7 +30,7 @@ MultithreadedEventsExecutor::MultithreadedEventsExecutor(
   rclcpp::experimental::executors::EventsQueue::UniquePtr events_queue,
   const rclcpp::ExecutorOptions & options)
 : rclcpp::experimental::executors::EventsExecutor(std::move(events_queue), options),
-  number_of_threads_(number_of_threads)
+  number_of_threads_(number_of_threads > 0 ? number_of_threads : std::max(std::thread::hardware_concurrency(), 1U))
 {
 }
 
@@ -48,14 +48,17 @@ MultithreadedEventsExecutor::spin()
 
   // Create a pool of worker threads and associated simple queues
   std::vector<WorkerThread> threads;
-  threads.reserve(number_of_threads_);
   for (int i = 0; i < number_of_threads_; i++) {
-    threads.emplace_back(WorkerThread(
+    threads.emplace_back(
       std::make_unique<rclcpp::experimental::executors::SimpleEventsQueue>(),
       [this](rclcpp::experimental::executors::ExecutorEvent event) {
         this->execute_event(event);
       }
-    ));
+    );
+  }
+
+  for (auto & thread : threads) {
+    thread.start();
   }
 
   while (rclcpp::ok(context_) && spinning.load()) {
@@ -69,7 +72,8 @@ MultithreadedEventsExecutor::spin()
       uint32_t emptiest_size = UINT32_MAX;
       int candidate_index;
       for(int i = 0; i < threads.size(); i++) {
-        if (threads[i].has_work()) {
+        if (!threads[i].has_work()) {
+          candidate_index = i;
           break;
         } else if (threads[i].get_work_size() < emptiest_size) {
           emptiest_size = threads[i].get_work_size();
@@ -116,15 +120,19 @@ MultithreadedEventsExecutor::spin_some_impl(std::chrono::nanoseconds max_duratio
 
   // Create a pool of worker threads and associated simple queues
   std::vector<WorkerThread> threads;
-  threads.reserve(number_of_threads_);
+  // threads.reserve(number_of_threads_);
   for (int i = 0; i < number_of_threads_; i++) {
-    threads.emplace_back(WorkerThread(
+    threads.emplace_back(
       std::make_unique<rclcpp::experimental::executors::SimpleEventsQueue>(),
       [this, &executed_events](rclcpp::experimental::executors::ExecutorEvent event) {
         this->execute_event(event);
         executed_events++;
       }
-    ));
+    );
+  }
+
+  for (auto & thread : threads) {
+    thread.start();
   }
 
   while (rclcpp::ok(context_) && spinning.load() && max_duration_not_elapsed()) {

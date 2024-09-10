@@ -17,7 +17,9 @@
 
 #include <atomic>
 #include <chrono>
+#include <condition_variable>
 #include <memory>
+#include <thread>
 #include <vector>
 
 #include "rclcpp/experimental/executors/events_executor/events_executor.hpp"
@@ -61,13 +63,15 @@ public:
   class WorkerThread
   {
   public:
+    WorkerThread() = delete;
+
     WorkerThread(
       rclcpp::experimental::executors::EventsQueue::UniquePtr events_queue,
       std::function<void(rclcpp::experimental::executors::ExecutorEvent)> execution_function)
-      : events_queue_(std::move(events_queue)), has_work_(false), running_(false),
-        execution_function_(execution_function) {
+      : has_work_(false), running_(false), events_queue_(std::move(events_queue)), 
+        execution_function_(execution_function) {}
 
-      }
+    // WorkerThread(const WorkerThread& other) = delete;
 
     void start() {
       running_ = true;
@@ -82,18 +86,20 @@ public:
     void run() {
       while (running_) {
         rclcpp::experimental::executors::ExecutorEvent event;
-        bool has_event = events_queue_->dequeue(event);
-        if (has_event) {
-          has_work_ = true;
+        has_work_ = events_queue_->dequeue(event);
+        if (has_work_) {
           execution_function_(event);
         } else {
-          has_work_ = false;
+          // std::unique_lock<std::mutex> lk(m_);
+          // cv_.wait(lk, [this]{return has_work_;});
         }
       }
     }
 
     void add_work(rclcpp::experimental::executors::ExecutorEvent event) {
+      has_work_ = true;
       events_queue_->enqueue(event);
+      // cv_.notify_one();
     }
 
     bool steal_work(rclcpp::experimental::executors::ExecutorEvent & event) {
@@ -111,9 +117,12 @@ public:
   protected:
     bool has_work_;
     bool running_;    // TODO: Change to atomic variable
-    std::thread thread_;
-    std::function<void(rclcpp::experimental::executors::ExecutorEvent)> execution_function_;
     rclcpp::experimental::executors::EventsQueue::UniquePtr events_queue_;
+    std::function<void(rclcpp::experimental::executors::ExecutorEvent)> execution_function_;
+
+    std::thread thread_;
+    // std::condition_variable cv_;
+    // std::mutex m_;
   };
 
   /// Default constructor. See the default constructor for Executor.
