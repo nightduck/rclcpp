@@ -119,7 +119,7 @@ int TimersManager::enqueue_ready_timers_into(EventsQueue::SharedPtr events_queue
 {
   // Lock mutex
   std::unique_lock<std::mutex> lock(timers_mutex_);
-  
+
   // We start by locking the timers
   TimersHeap locked_heap = weak_timers_heap_.validate_and_lock();
 

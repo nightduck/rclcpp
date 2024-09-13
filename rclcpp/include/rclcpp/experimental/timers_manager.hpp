@@ -31,7 +31,7 @@
 #include "rclcpp/experimental/executors/events_executor/events_queue.hpp"
 #include "rclcpp/experimental/executors/events_executor/events_executor_event_types.hpp"
 
-//TODO (nightduck): Remove all references to the timer thread
+// TODO(nightduck): Remove all references to the timer thread
 namespace rclcpp
 {
 namespace experimental
@@ -188,7 +188,7 @@ public:
 
   /**
    * @brief Enqueues all the timers that are currently ready into the events_queue.
-   * @param events_queue 
+   * @param events_queue
    */
   RCLCPP_PUBLIC
   int enqueue_ready_timers_into(executors::EventsQueue::SharedPtr events_queue);

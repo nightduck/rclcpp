@@ -21,6 +21,7 @@
 #include <type_traits>
 
 #include "rclcpp/experimental/executors/events_executor/events_executor.hpp"
+#include "rclcpp/experimental/executors/events_executor/multithreaded_events_executor.hpp"
 #include "rclcpp/executors/single_threaded_executor.hpp"
 #include "rclcpp/executors/static_single_threaded_executor.hpp"
 #include "rclcpp/executors/multi_threaded_executor.hpp"
@@ -52,7 +53,8 @@ using ExecutorTypes =
   rclcpp::executors::SingleThreadedExecutor,
   rclcpp::executors::MultiThreadedExecutor,
   DeprecatedStaticSingleThreadedExecutor,
-  rclcpp::experimental::executors::EventsExecutor>;
+  rclcpp::experimental::executors::EventsExecutor,
+  rclcpp::experimental::executors::MultithreadedEventsExecutor>;
 #ifdef __clang__
 # pragma clang diagnostic pop
 #endif

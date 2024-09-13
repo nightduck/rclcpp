@@ -105,9 +105,6 @@ EventsExecutor::spin()
   }
   RCPPUTILS_SCOPE_EXIT(this->spinning.store(false); );
 
-  // TODO: Create a pool of worker threads and associated simple queues
-  // TODO: Expand ExecutorEvent to include a thread mask of acceptable worker threads
-
   while (rclcpp::ok(context_) && spinning.load()) {
     // Check if any timers are ready and enqueue them here
     timers_manager_->enqueue_ready_timers_into(events_queue_);

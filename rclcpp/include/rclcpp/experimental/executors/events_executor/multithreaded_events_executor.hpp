@@ -12,14 +12,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef RCLCPP__EXPERIMENTAL__EXECUTORS__MULTITHREADED_EVENTS_EXECUTOR__EVENTS_EXECUTOR_HPP_
-#define RCLCPP__EXPERIMENTAL__EXECUTORS__MULTITHREADED_EVENTS_EXECUTOR__EVENTS_EXECUTOR_HPP_
+#ifndef RCLCPP__EXPERIMENTAL__EXECUTORS__EVENTS_EXECUTOR__MULTITHREADED_EVENTS_EXECUTOR_HPP_
+#define RCLCPP__EXPERIMENTAL__EXECUTORS__EVENTS_EXECUTOR__MULTITHREADED_EVENTS_EXECUTOR_HPP_
 
 #include <atomic>
 #include <chrono>
 #include <condition_variable>
 #include <memory>
 #include <thread>
+#include <utility>
 #include <vector>
 
 #include "rclcpp/experimental/executors/events_executor/events_executor.hpp"
@@ -62,28 +63,31 @@ public:
 
   class WorkerThread
   {
-  public:
+public:
     WorkerThread() = delete;
 
     WorkerThread(
       rclcpp::experimental::executors::EventsQueue::UniquePtr events_queue,
       std::function<void(rclcpp::experimental::executors::ExecutorEvent)> execution_function)
-      : has_work_(false), running_(false), events_queue_(std::move(events_queue)), 
-        execution_function_(execution_function) {}
+    : has_work_(false), running_(false), events_queue_(std::move(events_queue)),
+      execution_function_(execution_function) {}
 
     // WorkerThread(const WorkerThread& other) = delete;
 
-    void start() {
+    void start()
+    {
       running_ = true;
       thread_ = std::thread(&WorkerThread::run, this);
     }
 
-    void stop() {
+    void stop()
+    {
       running_ = false;
       thread_.join();
     }
 
-    void run() {
+    void run()
+    {
       while (running_) {
         rclcpp::experimental::executors::ExecutorEvent event;
         has_work_ = events_queue_->dequeue(event);
@@ -96,27 +100,31 @@ public:
       }
     }
 
-    void add_work(rclcpp::experimental::executors::ExecutorEvent event) {
+    void add_work(rclcpp::experimental::executors::ExecutorEvent event)
+    {
       has_work_ = true;
       events_queue_->enqueue(event);
       // cv_.notify_one();
     }
 
-    bool steal_work(rclcpp::experimental::executors::ExecutorEvent & event) {
+    bool steal_work(rclcpp::experimental::executors::ExecutorEvent & event) 
+  {
       return events_queue_->dequeue(event);
     }
 
-    bool has_work() {
+    bool has_work()
+    {
       return has_work_;
     }
 
-    int get_work_size() {
+    int get_work_size()
+    {
       return events_queue_->size();
     }
 
-  protected:
+protected:
     bool has_work_;
-    bool running_;    // TODO: Change to atomic variable
+    bool running_;    // TODO(nightduck): Change to atomic variable
     rclcpp::experimental::executors::EventsQueue::UniquePtr events_queue_;
     std::function<void(rclcpp::experimental::executors::ExecutorEvent)> execution_function_;
 
@@ -132,7 +140,7 @@ public:
    * \param[in] options Options used to configure the executor.
    */
   RCLCPP_PUBLIC
-   MultithreadedEventsExecutor(
+  MultithreadedEventsExecutor(
     int number_of_threads = 0,
     rclcpp::experimental::executors::EventsQueue::UniquePtr events_queue = std::make_unique<
       rclcpp::experimental::executors::SimpleEventsQueue>(),
@@ -168,4 +176,4 @@ protected:
 }  // namespace experimental
 }  // namespace rclcpp
 
-#endif  // RCLCPP__EXPERIMENTAL__EXECUTORS__MULTITHREADED_EVENTS_EXECUTOR__EVENTS_EXECUTOR_HPP_
+#endif  // RCLCPP__EXPERIMENTAL__EXECUTORS__EVENTS_EXECUTOR__MULTITHREADED_EVENTS_EXECUTOR_HPP_

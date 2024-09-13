@@ -538,6 +538,11 @@ if(TARGET test_events_executor)
   target_link_libraries(test_events_executor ${PROJECT_NAME} ${test_msgs_TARGETS})
 endif()
 
+ament_add_gtest(test_multithreaded_events_executor executors/test_multithreaded_events_executor.cpp TIMEOUT 5)
+if(TARGET test_multithreaded_events_executor)
+  target_link_libraries(test_multithreaded_events_executor ${PROJECT_NAME} ${test_msgs_TARGETS})
+endif()
+
 ament_add_gtest(test_events_queue executors/test_events_queue.cpp
   APPEND_LIBRARY_DIRS "${append_library_dirs}")
 if(TARGET test_events_queue)

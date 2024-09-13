@@ -30,7 +30,8 @@ MultithreadedEventsExecutor::MultithreadedEventsExecutor(
   rclcpp::experimental::executors::EventsQueue::UniquePtr events_queue,
   const rclcpp::ExecutorOptions & options)
 : rclcpp::experimental::executors::EventsExecutor(std::move(events_queue), options),
-  number_of_threads_(number_of_threads > 0 ? number_of_threads : std::max(std::thread::hardware_concurrency(), 1U))
+  number_of_threads_(number_of_threads >
+    0 ? number_of_threads : std::max(std::thread::hardware_concurrency(), 1U))
 {
 }
 
@@ -165,7 +166,9 @@ MultithreadedEventsExecutor::spin_some_impl(std::chrono::nanoseconds max_duratio
     }
 
     // If there's no more work available, exit
-    if (!exhaustive && (executed_events >= ready_events_at_start) && (executed_timers >= ready_timers_at_start)) {
+    if (!exhaustive && (executed_events >= ready_events_at_start) &&
+      (executed_timers >= ready_timers_at_start))
+    {
       break;
     }
   }
