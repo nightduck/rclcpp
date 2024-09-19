@@ -66,36 +66,47 @@ public:
 public:
     WorkerThread() = delete;
 
+    WorkerThread(const WorkerThread & other) = delete;
+
+    WorkerThread(WorkerThread && other) = delete;
+
     WorkerThread(
-      rclcpp::experimental::executors::EventsQueue::UniquePtr events_queue,
-      std::function<void(rclcpp::experimental::executors::ExecutorEvent)> execution_function)
+      std::function<void(rclcpp::experimental::executors::ExecutorEvent)> execution_function,
+      rclcpp::experimental::executors::EventsQueue::UniquePtr events_queue
+      = std::make_unique<rclcpp::experimental::executors::SimpleEventsQueue>())
     : has_work_(false), running_(false), events_queue_(std::move(events_queue)),
       execution_function_(execution_function) {}
 
-    // WorkerThread(const WorkerThread& other) = delete;
+    ~WorkerThread()
+    {
+      stop();
+    }
 
     void start()
     {
-      running_ = true;
+      running_.store(true);
       thread_ = std::thread(&WorkerThread::run, this);
     }
 
     void stop()
     {
-      running_ = false;
-      thread_.join();
+      running_.store(false);
+      cv_.notify_one();
+      if (thread_.joinable()) {
+        thread_.join();
+      }
     }
 
     void run()
     {
-      while (running_) {
+      while (running_.load()) {
         rclcpp::experimental::executors::ExecutorEvent event;
         has_work_ = events_queue_->dequeue(event);
         if (has_work_) {
           execution_function_(event);
         } else {
-          // std::unique_lock<std::mutex> lk(m_);
-          // cv_.wait(lk, [this]{return has_work_;});
+          std::unique_lock<std::mutex> lk(m_);
+          cv_.wait(lk, [this]{return has_work_ || !running_.load();});
         }
       }
     }
@@ -104,11 +115,11 @@ public:
     {
       has_work_ = true;
       events_queue_->enqueue(event);
-      // cv_.notify_one();
+      cv_.notify_one();
     }
 
-    bool steal_work(rclcpp::experimental::executors::ExecutorEvent & event) 
-  {
+    bool steal_work(rclcpp::experimental::executors::ExecutorEvent & event)
+    {
       return events_queue_->dequeue(event);
     }
 
@@ -124,13 +135,13 @@ public:
 
 protected:
     bool has_work_;
-    bool running_;    // TODO(nightduck): Change to atomic variable
+    std::atomic_bool running_;
     rclcpp::experimental::executors::EventsQueue::UniquePtr events_queue_;
     std::function<void(rclcpp::experimental::executors::ExecutorEvent)> execution_function_;
 
     std::thread thread_;
-    // std::condition_variable cv_;
-    // std::mutex m_;
+    std::condition_variable cv_;
+    std::mutex m_;
   };
 
   /// Default constructor. See the default constructor for Executor.

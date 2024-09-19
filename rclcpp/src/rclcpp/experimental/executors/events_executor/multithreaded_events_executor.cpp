@@ -48,18 +48,17 @@ MultithreadedEventsExecutor::spin()
   RCPPUTILS_SCOPE_EXIT(this->spinning.store(false); );
 
   // Create a pool of worker threads and associated simple queues
-  std::vector<WorkerThread> threads;
+  std::deque<WorkerThread> workers;
   for (int i = 0; i < number_of_threads_; i++) {
-    threads.emplace_back(
-      std::make_unique<rclcpp::experimental::executors::SimpleEventsQueue>(),
+    std::function<void(rclcpp::experimental::executors::ExecutorEvent)> execution_function =
       [this](rclcpp::experimental::executors::ExecutorEvent event) {
         this->execute_event(event);
-      }
-    );
+      };
+    workers.emplace_back(execution_function);
   }
 
-  for (auto & thread : threads) {
-    thread.start();
+  for (auto & worker : workers) {
+    worker.start();
   }
 
   while (rclcpp::ok(context_) && spinning.load()) {
@@ -72,21 +71,17 @@ MultithreadedEventsExecutor::spin()
     if (has_event) {
       uint32_t emptiest_size = UINT32_MAX;
       int candidate_index;
-      for(int i = 0; i < threads.size(); i++) {
-        if (!threads[i].has_work()) {
+      for(int i = 0; i < workers.size(); i++) {
+        if (!workers[i].has_work()) {
           candidate_index = i;
           break;
-        } else if (threads[i].get_work_size() < emptiest_size) {
-          emptiest_size = threads[i].get_work_size();
+        } else if (workers[i].get_work_size() < emptiest_size) {
+          emptiest_size = workers[i].get_work_size();
           candidate_index = i;
         }
       }
-      threads[candidate_index].add_work(event);
+      workers[candidate_index].add_work(event);
     }
-  }
-
-  for (auto & thread : threads) {
-    thread.stop();
   }
 }
 
@@ -120,19 +115,16 @@ MultithreadedEventsExecutor::spin_some_impl(std::chrono::nanoseconds max_duratio
   size_t executed_timers = 0;
 
   // Create a pool of worker threads and associated simple queues
-  std::vector<WorkerThread> threads;
-  // threads.reserve(number_of_threads_);
+  std::deque<WorkerThread> workers;
   for (int i = 0; i < number_of_threads_; i++) {
-    threads.emplace_back(
-      std::make_unique<rclcpp::experimental::executors::SimpleEventsQueue>(),
-      [this, &executed_events](rclcpp::experimental::executors::ExecutorEvent event) {
+    std::function<void(rclcpp::experimental::executors::ExecutorEvent)> execution_function =
+      [this](rclcpp::experimental::executors::ExecutorEvent event) {
         this->execute_event(event);
-        executed_events++;
-      }
-    );
+      };
+    workers.emplace_back(execution_function);
   }
 
-  for (auto & thread : threads) {
+  for (auto & thread : workers) {
     thread.start();
   }
 
@@ -147,15 +139,15 @@ MultithreadedEventsExecutor::spin_some_impl(std::chrono::nanoseconds max_duratio
         if (ret) {
           uint32_t emptiest_size = UINT32_MAX;
           int candidate_index;
-          for(int i = 0; i < threads.size(); i++) {
-            if (threads[i].has_work()) {
+          for(int i = 0; i < workers.size(); i++) {
+            if (workers[i].has_work()) {
               break;
-            } else if (threads[i].get_work_size() < emptiest_size) {
-              emptiest_size = threads[i].get_work_size();
+            } else if (workers[i].get_work_size() < emptiest_size) {
+              emptiest_size = workers[i].get_work_size();
               candidate_index = i;
             }
           }
-          threads[candidate_index].add_work(event);
+          workers[candidate_index].add_work(event);
         }
       }
     }
