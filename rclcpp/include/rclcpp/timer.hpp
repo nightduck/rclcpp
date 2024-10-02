@@ -40,6 +40,8 @@
 #include "rmw/error_handling.h"
 #include "rmw/rmw.h"
 
+using namespace std::chrono_literals;
+
 namespace rclcpp
 {
 
@@ -63,7 +65,8 @@ public:
     Clock::SharedPtr clock,
     std::chrono::nanoseconds period,
     rclcpp::Context::SharedPtr context,
-    bool autostart = true);
+    bool autostart = true,
+    std::chrono::nanoseconds deadline = 0ns);
 
   /// TimerBase destructor
   RCLCPP_PUBLIC
@@ -194,6 +197,13 @@ public:
   int64_t
   get_arrival_time() const;
 
+  /// Get next deadline of the timer
+  /**
+   * \return The next deadline of the timer, as an absolute timestamp
+   */
+  int64_t
+  get_next_deadline() const;
+
 protected:
   std::recursive_mutex callback_mutex_;
   // Declare callback before timer_handle_, so on destruction
@@ -207,6 +217,8 @@ protected:
   std::shared_ptr<rcl_timer_t> timer_handle_;
 
   std::atomic<bool> in_use_by_wait_set_{false};
+
+  std::chrono::nanoseconds deadline_;
 
   RCLCPP_PUBLIC
   void

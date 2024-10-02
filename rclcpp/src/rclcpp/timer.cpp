@@ -33,8 +33,9 @@ TimerBase::TimerBase(
   rclcpp::Clock::SharedPtr clock,
   std::chrono::nanoseconds period,
   rclcpp::Context::SharedPtr context,
-  bool autostart)
-: clock_(clock), timer_handle_(nullptr)
+  bool autostart,
+  std::chrono::nanoseconds deadline)
+: clock_(clock), timer_handle_(nullptr), deadline_((deadline <= 0ns) ? period : deadline)
 {
   if (nullptr == context) {
     context = rclcpp::contexts::get_global_default_context();
@@ -239,4 +240,10 @@ TimerBase::get_arrival_time() const
     rclcpp::exceptions::throw_from_rcl_error(ret, "Failed to get timer arrival time");
   }
   return time;
+}
+
+int64_t
+TimerBase::get_next_deadline() const
+{
+  return get_arrival_time() - get_period() + deadline_.count();
 }

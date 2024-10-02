@@ -72,7 +72,7 @@ public:
     {
       std::unique_lock<std::mutex> lock(mutex_);
       if (single_event.type == rclcpp::experimental::executors::ExecutorEventType::TIMER_EVENT) {
-        int64_t deadline = static_cast<const rclcpp::TimerBase*>(single_event.entity_key)->get_arrival_time();
+        int64_t deadline = static_cast<const rclcpp::TimerBase*>(single_event.entity_key)->get_next_deadline();
         PriorityEvent priority_event = {deadline, single_event};
         for (size_t ev = 0; ev < event.num_events; ev++) {
           timers_queue_.push(priority_event);
