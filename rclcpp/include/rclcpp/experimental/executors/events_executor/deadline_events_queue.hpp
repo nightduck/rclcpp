@@ -24,6 +24,7 @@
 #include <vector>
 
 #include "rclcpp/rclcpp.hpp"
+#include "rclcpp/experimental/executors/events_executor/period_events_queue.hpp"
 #include "rclcpp/experimental/executors/events_executor/events_queue.hpp"
 
 namespace rclcpp
@@ -32,19 +33,6 @@ namespace experimental
 {
 namespace executors
 {
-
-struct PriorityEvent
-{
-  int priority;
-  rclcpp::experimental::executors::ExecutorEvent event;
-};
-
-struct ComparePriorities : public std::binary_function<PriorityEvent, PriorityEvent, bool>
-{
-  bool
-  operator()(const PriorityEvent & __x, const PriorityEvent & __y) const
-  {return __x.priority > __y.priority;}
-};
 
 /**
  * @brief This implements a priority queue with separate queues for timers and children. This
