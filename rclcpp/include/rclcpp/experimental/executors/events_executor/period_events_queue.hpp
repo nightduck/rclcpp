@@ -35,7 +35,7 @@ namespace executors
 
 struct PriorityEvent
 {
-  int priority;
+  int64_t priority;
   rclcpp::experimental::executors::ExecutorEvent event;
 };
 
@@ -72,19 +72,16 @@ public:
     {
       std::unique_lock<std::mutex> lock(mutex_);
       if (single_event.type == rclcpp::experimental::executors::ExecutorEventType::TIMER_EVENT) {
-        int64_t period;
-        auto ret = rcl_timer_get_period(static_cast<const rcl_timer_t*>(single_event.entity_key),
-          &period);
-        if (ret != RCL_RET_OK) {
-          return;
-        }
+        int64_t period = static_cast<const rclcpp::TimerBase*>(single_event.entity_key)->get_period();
         PriorityEvent priority_event = {period, single_event};
         for (size_t ev = 0; ev < event.num_events; ev++) {
           timers_queue_.push(priority_event);
+          // std::cout << "Enqueued timer of priority " << period << std::endl;
         }
       } else {
         for (size_t ev = 0; ev < event.num_events; ev++) {
           children_queue_.push(single_event);
+          // std::cout << "Enqueued child" << std::endl;
         }
       }
     }
@@ -108,6 +105,7 @@ public:
     // They are guaranteed to be children of the last dequeued element on uniprocessor
     while(children_queue_.size() > children_priority_queue_.size()) {
       children_priority_queue_.push(last_priority_);
+      // std::cout << "Pushing child priority of " << last_priority_ << std::endl;
     }
 
     // Compare the priority of the top element in the timers queue with the top element in the
@@ -118,12 +116,14 @@ public:
       last_priority_ = timers_queue_.top().priority;
       event = timers_queue_.top().event;
       timers_queue_.pop();
+      // std::cout << "Releasing timer of priority " << last_priority_ << std::endl;
       return true;
     } else if (!children_queue_.empty()) {
       last_priority_ = children_priority_queue_.top();
       event = children_queue_.top();
       children_queue_.pop();
       children_priority_queue_.pop();
+      // std::cout << "Releasing child of priority " << last_priority_ << std::endl;
       return true;
     } else {
       return false;
@@ -166,9 +166,9 @@ private:
   // The underlying queue implementation for child subtasks
   std::stack<rclcpp::experimental::executors::ExecutorEvent> children_queue_;
   // Store priority values for elements in children_queue_
-  std::stack<uint32_t> children_priority_queue_;
+  std::stack<int64_t> children_priority_queue_;
   // Priority/period of the last element to be dequeued
-  uint32_t last_priority_ = 0;
+  int64_t last_priority_ = 0;
   // Mutex to protect read/write access to the queue
   mutable std::mutex mutex_;
   // Variable used to notify when an event is added to the queue
